@@ -1,0 +1,21 @@
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--sky);
+  color: var(--ink);
+}
+
+.logo__text {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  color: var(--navy);
+}

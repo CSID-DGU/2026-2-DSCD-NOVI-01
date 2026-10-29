@@ -1,0 +1,271 @@
+.login-page {
+  min-height: 100vh;
+  padding: 28px 64px 64px;
+}
+
+/* ---------- 헤더 ---------- */
+.login-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1152px;
+  margin: 0 auto;
+}
+
+.login-header__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.login-header__hint {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.pill-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 32px;
+  border-radius: 20px;
+  background: var(--lavender);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.pill-button:hover {
+  filter: brightness(0.97);
+}
+
+/* ---------- 티켓 카드 ---------- */
+.ticket-card {
+  --stub-width: 340px;
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--stub-width) 1fr;
+  max-width: 900px;
+  min-height: 520px;
+  margin: 52px auto 0;
+  border-radius: 28px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.ticket-card__stub {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 0 40px;
+  border-radius: 28px 0 0 28px;
+  background: var(--sky);
+  border-right: 1.5px dashed var(--perforation);
+}
+
+.ticket-card__circle {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.ticket-card__circle--lavender {
+  width: 260px;
+  height: 260px;
+  top: -80px;
+  left: -90px;
+  background: var(--lavender);
+}
+
+.ticket-card__circle--sky {
+  width: 190px;
+  height: 190px;
+  bottom: 25px;
+  right: -105px;
+  background: var(--sky-strong);
+  opacity: 0.75;
+}
+
+.ticket-card__stub-text {
+  position: relative; 
+}
+
+.ticket-card__eyebrow {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a5490;
+}
+
+.ticket-card__headline {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 38px;
+  line-height: 1.26;
+  color: var(--navy);
+}
+
+.ticket-card__notch {
+  position: absolute;
+  left: calc(var(--stub-width) - 14px);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg);
+}
+
+.ticket-card__notch--top {
+  top: -14px;
+}
+
+.ticket-card__notch--bottom {
+  bottom: -14px;
+}
+
+.ticket-card__body {
+  padding: 64px 60px 72px;
+}
+
+/* ---------- 폼 ---------- */
+.login-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.login-subtitle {
+  margin: 2px 0 30px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field__label {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.field__wrap {
+  position: relative;
+  display: block;
+}
+
+.field__input {
+  width: 100%;
+  height: 50px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--field);
+  font-size: 15px;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.field__input::placeholder {
+  color: var(--hint);
+}
+
+.field__input:focus {
+  outline: none;
+  border-color: var(--purple);
+  background: var(--surface);
+}
+
+.field__input--with-icon {
+  padding-right: 52px;
+}
+
+.field__icon-button {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--hint);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.field__icon-button:hover {
+  color: var(--muted);
+}
+
+.field__icon-button:focus-visible,
+.primary-button:focus-visible,
+.pill-button:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
+
+.login-error {
+  min-height: 20px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.primary-button {
+  height: 56px;
+  border: 0;
+  border-radius: 28px;
+  background: var(--purple);
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.primary-button:hover:not(:disabled) {
+  background: var(--purple-hover);
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+@media (max-width: 860px) {
+  .login-page {
+    padding: 20px 16px 40px;
+  }
+
+  .login-header__hint {
+    display: none;
+  }
+
+  .ticket-card {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    margin-top: 32px;
+  }
+
+  .ticket-card__stub,
+  .ticket-card__notch {
+    display: none;
+  }
+
+  .ticket-card__body {
+    padding: 40px 24px;
+  }
+}
