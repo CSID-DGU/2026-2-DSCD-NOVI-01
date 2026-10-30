@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Logo from '../../components/Logo.jsx'
-import { REGION_DISTRICTS } from './regions.js'
 import './SignupPage.css'
 
 // 개발 단계에서는 환경 변수가 없으면 화면 동작만 확인하는 데모 모드입니다.
@@ -20,28 +19,17 @@ function EyeIcon({ crossed = false }) {
   )
 }
 
-function ChevronIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 function SignupPage() {
+  const navigate = useNavigate()
   const [form, setForm] = useState({
     nickname: '',
     password: '',
-    gender: '',
-    region: '서울특별시',
-    district: '',
   })
   const [showPassword, setShowPassword] = useState(false)
   const [nicknameStatus, setNicknameStatus] = useState('idle')
   const [nicknameMessage, setNicknameMessage] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [completed, setCompleted] = useState(false)
   const nicknameRequestId = useRef(0)
 
   function updateField(field, value) {
@@ -54,7 +42,6 @@ function SignupPage() {
     setForm((prev) => ({
       ...prev,
       [field]: value,
-      ...(field === 'region' ? { district: '' } : {}),
     }))
   }
 
@@ -109,14 +96,10 @@ function SignupPage() {
       setSubmitError('비밀번호는 영문과 숫자를 포함해 8자 이상 입력해 주세요.')
       return
     }
-    if (!form.district) {
-      setSubmitError('거주지의 시/군/구를 선택해 주세요.')
-      return
-    }
 
     if (!API_BASE) {
       // 데모 모드에서는 실제 계정을 생성하거나 비밀번호를 저장하지 않습니다.
-      setCompleted(true)
+      navigate('/onboarding')
       return
     }
 
@@ -130,16 +113,13 @@ function SignupPage() {
         body: JSON.stringify({
           nickname: form.nickname.trim(),
           password: form.password,
-          gender: form.gender || null,
-          region: form.region,
-          district: form.district,
         }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.message || '회원가입 요청에 실패했어요.')
       }
-      setCompleted(true)
+      navigate('/onboarding')
     } catch (err) {
       setSubmitError(err.message || '회원가입 중 문제가 발생했어요.')
     } finally {
@@ -164,26 +144,13 @@ function SignupPage() {
           <div className="signup-ticket__welcome">
             <p className="signup-ticket__eyebrow">JOIN US</p>
             <h2>당신의 첫 번째<br />티켓을 만들어요</h2>
-            <p>가입 후 인생 작품 5개를 고르면<br />추천이 시작돼요</p>
+            <p>가입 후 취향을 설정하고<br />인생 작품을 골라보세요</p>
           </div>
         </aside>
         <span className="signup-ticket__notch signup-ticket__notch--top" aria-hidden="true" />
         <span className="signup-ticket__notch signup-ticket__notch--bottom" aria-hidden="true" />
 
         <section className="signup-ticket__body" aria-labelledby="signup-title">
-          {completed ? (
-            <div className="signup-complete">
-              <span className="signup-complete__check" aria-hidden="true">✓</span>
-              <h1 id="signup-title">{form.nickname.trim()}님, 반가워요!</h1>
-              {API_BASE ? (
-                <p>회원가입 요청이 완료되었어요.<br />다음 단계인 인생 작품 선택 화면은 추후 연결할 예정이에요.</p>
-              ) : (
-                <p>입력 검증 데모가 완료되었어요.<br />실제 계정은 생성되지 않았고 비밀번호도 저장하지 않았어요.</p>
-              )}
-              <Link to="/login" className="signup-submit">로그인 화면으로 이동</Link>
-            </div>
-          ) : (
-            <>
               <h1 id="signup-title" className="signup-title">회원가입</h1>
               <p className="signup-subtitle">닉네임으로 로그인해요</p>
               <form onSubmit={handleSubmit} noValidate className="signup-form">
@@ -231,47 +198,12 @@ function SignupPage() {
                   <p id="signup-password-hint" className="signup-field__hint">영문·숫자를 포함해 8자 이상</p>
                 </div>
 
-                <div className="signup-field">
-                  <span className="signup-field__label">성별 <small>(선택)</small></span>
-                  <div className="signup-gender" role="group" aria-label="성별 선택">
-                    {['여성', '남성', '선택 안 함'].map((gender) => (
-                      <button key={gender} type="button" className={form.gender === (gender === '선택 안 함' ? '' : gender) ? 'is-selected' : ''}
-                        aria-pressed={form.gender === (gender === '선택 안 함' ? '' : gender)}
-                        onClick={() => updateField('gender', gender === '선택 안 함' ? '' : gender)}>
-                        {gender}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="signup-field signup-field--region">
-                  <label htmlFor="signup-region">거주지</label>
-                  <div className="signup-field__region">
-                    <div className="signup-select">
-                      <select id="signup-region" value={form.region} onChange={(e) => updateField('region', e.target.value)}>
-                        {Object.keys(REGION_DISTRICTS).map((region) => <option key={region} value={region}>{region}</option>)}
-                      </select>
-                      <ChevronIcon />
-                    </div>
-                    <div className="signup-select">
-                      <select id="signup-district" aria-label="시/군/구" value={form.district} className={!form.district ? 'is-placeholder' : ''} onChange={(e) => updateField('district', e.target.value)}>
-                        <option value="" disabled>시/군/구 선택</option>
-                        {REGION_DISTRICTS[form.region].map((district) => <option value={district} key={district}>{district}</option>)}
-                      </select>
-                      <ChevronIcon />
-                    </div>
-                  </div>
-                  <p className="signup-field__hint">가까운 공연장·전시장 위주로 추천을 보정하는 데 사용돼요</p>
-                </div>
-
                 {submitError && <p className="signup-form__error" role="alert">{submitError}</p>}
                 <button className="signup-submit" type="submit" disabled={submitting}>
-                  {submitting ? '가입 요청 중...' : '가입하고 인생 작품 고르기'}
+                  {submitting ? '가입 요청 중...' : '가입하고 취향 설정하기'}
                 </button>
                 {!API_BASE && <p className="signup-form__demo">현재 화면은 프론트엔드 데모입니다. 계정 정보는 저장되지 않습니다.</p>}
               </form>
-            </>
-          )}
         </section>
       </main>
     </div>
