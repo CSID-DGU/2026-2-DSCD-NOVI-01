@@ -1,0 +1,29 @@
+/* 온보딩 / 티켓 등록에서 공유되는 작품별 취향 선택 영역 */
+.work-pref-form { width: 100%; }
+.work-pref-group { margin-top: 32px; }
+.work-pref-group h3 { margin: 0 0 14px; font-size: 14px; }
+.work-pref-group h3 small { font-size: 12px; margin-left: 16px; color: #8d94ab; font-weight: 400; }
+.work-pref-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; }
+.work-pref-chip { min-width: 0; min-height: 66px; border: 1px solid #e1e5f1; border-radius: 16px; background: white; display: flex; justify-content: space-between; align-items: center; gap: 9px; padding: 8px 9px 8px 15px; }
+.work-pref-chip__info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.work-pref-chip__name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.work-pref-chip__info small { font-size: 11px; color: #999eb7; }
+.work-pref-chip.is-liked .work-pref-chip__info small { color: #6953b5; }
+.work-pref-chip.is-disliked .work-pref-chip__info small { color: #b86781; }
+.work-pref-chip__actions { display: flex; flex-shrink: 0; gap: 6px; }
+.work-pref-action { width: 41px; height: 43px; display: grid; place-items: center; background: white; color: #6171b1; border: 1px solid #e2e6f3; border-radius: 12px; cursor: pointer; }
+.work-pref-action--down { color: #bd728a; }
+.work-pref-action--up.is-on { background: #6b5ab8; border-color: #6b5ab8; color: white; }
+.work-pref-action--down.is-on { background: #b86984; border-color: #b86984; color: white; }
+.work-pref-action:hover:not(.is-on) { background: #f3f2fb; }
+
+@media (max-width: 780px) {
+  .work-pref-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .work-pref-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.work-pref-action:focus-visible { outline: 3px solid #947df1; outline-offset: 3px; }
+
+.work-pref-empty { margin: 30px 0; padding: 32px; background: white; border-radius: 24px; font-size: 14px; color: #6f7690; }

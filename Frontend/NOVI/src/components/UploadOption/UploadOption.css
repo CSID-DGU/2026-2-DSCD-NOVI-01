@@ -1,0 +1,48 @@
+.tt-upload-option {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 298px;
+  padding: 28px 24px 25px;
+  border: 1px solid #e0e4f4;
+  border-radius: 24px;
+  background: #f9f9ff;
+}
+.tt-upload-option--emphasized { border: 1.5px solid #7060cb; padding: 27.5px 23.5px 24.5px; }
+.tt-upload-option__icon {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  flex: 0 0 62px;
+  border-radius: 50%;
+  color: #6857b6;
+  background: #e9e2f8;
+}
+.tt-upload-option__icon--image { color: #425c9e; background: #dceafa; }
+.tt-upload-option__icon--pencil { color: #7860ba; background: #f0eafd; }
+.tt-upload-option__details { flex: 1; margin-top: 24px; }
+.tt-upload-option__details h3 { margin: 0 0 9px; color: #292f51; font-size: 17px; line-height: 1.35; }
+.tt-upload-option__details p { margin: 0; color: #747c98; font-size: 12px; line-height: 1.9; white-space: pre-line; word-break: keep-all; }
+.tt-upload-option__button {
+  flex: 0 0 45px;
+  width: 100%;
+  margin-top: 17px;
+  border: 1px solid #d7def0;
+  background: #fff;
+  border-radius: 26px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #292f53;
+  cursor: pointer;
+  transition: background .15s, box-shadow .15s;
+}
+.tt-upload-option__button:hover { background: #f4f0ff; }
+.tt-upload-option__button--primary { background: #6958b5; border-color: #6958b5; color: #fff; }
+.tt-upload-option__button--primary:hover { background: #5d4ea5; }
+.tt-upload-option__button:focus-visible { outline: 3px solid #8572d9; outline-offset: 3px; }
+@media(max-width: 680px) {
+  .tt-upload-option { min-height: 248px; padding: 24px 18px; }
+  .tt-upload-option--emphasized { padding: 23.5px 17.5px; }
+  .tt-upload-option__details { margin-top: 16px; }
+}

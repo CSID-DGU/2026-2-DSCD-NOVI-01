@@ -1,0 +1,52 @@
+/* 메인 페이지에만 적용되는 스타일: 기존 Login/Signup/Onboarding CSS를 건드리지 않음 */
+.tt-home-page { min-height: 100vh; padding: 28px clamp(18px, 5vw, 64px) 56px; background: var(--bg, #f3f5fd); color: var(--navy, #262a4a); }
+.tt-home-main {
+  max-width: 1152px;
+  margin: 38px auto 0;
+  display: grid;
+  grid-template-columns: minmax(0, 0.99fr) minmax(0, 1.67fr);
+  gap: 24px;
+  align-items: stretch;
+}
+.tt-home-main__left { display: grid; grid-template-rows: 1fr 1fr; gap: 24px; min-width: 0; }
+.tt-home-upload { display: flex; flex-direction: column; min-width: 0; min-height: 558px; padding: 38px 39px 34px; background: #fff; border-radius: 28px; }
+.tt-home-upload__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.tt-home-upload__eyebrow { font-size: 14px; font-weight: 700; color: #405494; }
+.tt-home-upload__heading h1 { margin: 15px 0 7px; font: 400 clamp(36px, 3.6vw, 45px)/1.2 var(--font-serif, 'Gowun Batang', serif); color: #282b4d; letter-spacing: -.035em; }
+.tt-home-upload__heading p { color: #626985; margin: 0; font-size: 14px; }
+.tt-home-upload__options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 27px; }
+.tt-home-upload__footer { display: flex; align-items: center; min-height: 22px; margin-top: auto; padding-top: 27px; color: #79809d; font-size: 12px; line-height: 1.6; }
+.tt-home-upload__selected { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px; flex-wrap: wrap; overflow-wrap: anywhere; }
+.tt-home-upload__selected button { background: #f0ecfa; color: #5c4e9b; border: 0; border-radius: 14px; padding: 5px 11px; cursor: pointer; font-size: 12px; }
+.tt-home-upload__hidden-input { display: none; }
+@media (min-width: 1100px) { .tt-home-upload { min-height: 562px; } }
+@media (max-width: 1040px) {
+  .tt-home-main { grid-template-columns: minmax(0, .86fr) minmax(0, 1.3fr); gap: 18px; }
+  .tt-home-main__left { gap: 18px; }
+  .tt-home-upload { padding: 30px 25px; }
+  .tt-home-upload__options { gap: 8px; }
+  .tt-upload-option { padding: 24px 15px 18px; }
+  .tt-upload-option--emphasized { padding: 23.5px 14.5px 17.5px; }
+}
+@media (max-width: 830px) {
+  .tt-home-main { grid-template-columns: 1fr; }
+  .tt-home-main__left { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto; }
+  .tt-feature-card { min-height: 265px; }
+  .tt-home-upload { min-height: 0; }
+  .tt-home-upload__footer { margin-top: 0; }
+}
+@media (max-width: 600px) {
+  .tt-home-page { padding: 18px 16px 48px; }
+  .tt-home-main { margin-top: 24px; gap: 16px; }
+  .tt-home-main__left { grid-template-columns: 1fr; gap: 16px; }
+  .tt-home-upload { padding: 28px 20px; border-radius: 24px; }
+  .tt-home-upload__heading h1 { font-size: 38px; }
+  .tt-home-upload__options { grid-template-columns: 1fr; }
+  .tt-upload-option { min-height: 0; padding: 18px; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 13px 16px; align-items: center; }
+  .tt-upload-option--emphasized { padding: 17.5px; }
+  .tt-upload-option__icon { width: 54px; height: 54px; }
+  .tt-upload-option__details { margin: 0; }
+  .tt-upload-option__details h3 { font-size: 15px; }
+  .tt-upload-option__details p { font-size: 11px; }
+  .tt-upload-option__button { grid-column: 1 / -1; height: 42px; margin-top: 0; }
+}

@@ -34,9 +34,6 @@ const INITIAL_CRITERIA = Object.fromEntries(DOMAINS.map((domain) => [domain.key,
 function SearchIcon() {
   return <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="7" stroke="currentColor" strokeWidth="1.8"/><path d="m16 16 5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
 }
-function ThumbIcon({ down = false }) {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={down ? { transform:'rotate(180deg)' } : undefined}><path d="M7.5 10.5v10H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h3.5Zm0 0 4.6-7.5a2 2 0 0 1 3.7 1.2l-.5 5.3h5a2 2 0 0 1 2 2.4l-1.5 7a2 2 0 0 1-2 1.6H7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-}
 
 function Progress({ stage }) {
   const steps = ['선택 기준', '인생작 5개', '취향 확인']
@@ -56,13 +53,35 @@ function WorkSlot({ index, work, active, onRemove }) {
 }
 
 function PreferenceChip({ label, vote, onVote }) {
-  return <div className={`onb-vote-chip ${vote === 1 ? 'is-liked' : ''} ${vote === -1 ? 'is-disliked' : ''}`}>
-    <div className="onb-vote-chip__info"><span className="onb-vote-chip__name">{label}</span><small>{vote === 1 ? '좋아요' : vote === -1 ? '싫어요' : '선택 안 함'}</small></div>
-    <div className="onb-vote-chip__actions">
-      <button type="button" className={`onb-vote-action onb-vote-action--up ${vote === 1 ? 'is-on' : ''}`} aria-label={`${label} 좋아요`} aria-pressed={vote === 1} onClick={() => onVote(vote === 1 ? 0 : 1)}><ThumbIcon /></button>
-      <button type="button" className={`onb-vote-action onb-vote-action--down ${vote === -1 ? 'is-on' : ''}`} aria-label={`${label} 싫어요`} aria-pressed={vote === -1} onClick={() => onVote(vote === -1 ? 0 : -1)}><ThumbIcon down /></button>
+  const options = [
+    { label: '좋아요', value: 1, modifier: 'like' },
+    { label: '보통', value: 0, modifier: 'neutral' },
+    { label: '싫어요', value: -1, modifier: 'dislike' },
+  ]
+  const stateText = vote === 1 ? '좋아요' : vote === 0 ? '보통' : vote === -1 ? '싫어요' : '미선택'
+
+  return (
+    <div className={`onb-vote-chip ${vote === 1 ? 'is-liked' : vote === 0 ? 'is-neutral' : vote === -1 ? 'is-disliked' : ''}`}>
+      <div className="onb-vote-chip__info">
+        <span className="onb-vote-chip__name" title={label}>{label}</span>
+        <small>{stateText}</small>
+      </div>
+      <div className="onb-vote-chip__actions" role="group" aria-label={`${label} 선호도`}>
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={`onb-vote-action onb-vote-action--${option.modifier} ${vote === option.value ? 'is-on' : ''}`}
+            aria-label={`${label} ${option.label}`}
+            aria-pressed={vote === option.value}
+            onClick={() => onVote(vote === option.value ? null : option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
     </div>
-  </div>
+  )
 }
 
 function OnboardingPage() {
@@ -113,9 +132,22 @@ function OnboardingPage() {
     // chosen 변경을 문자열 ID로 비교해 불필요한 재호출을 줄입니다.
   }, [stage, selectedIds, detailRetry]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 로컬 상태에 일부 중요도 값이 비어 있더라도 NaN이 표시되지 않게 보정합니다.
+  function getCriterionValue(domainKey, key) {
+    const raw = Number(criteria[domainKey]?.[key])
+    const fallback = INITIAL_CRITERIA[domainKey]?.[key] ?? 50
+    if (!Number.isFinite(raw) || raw < 10) return fallback
+    return Math.max(10, Math.min(100, Math.round(raw / 10) * 10))
+  }
+
   function changeCriterion(key, value) {
     const domain = DOMAINS[domainIndex]
-    setCriteria((prev) => ({ ...prev, [domain.key]: { ...prev[domain.key], [key]: Number(value) } }))
+    const numeric = Number(value)
+    if (!Number.isFinite(numeric)) return
+    setCriteria((prev) => ({
+      ...prev,
+      [domain.key]: { ...prev[domain.key], [key]: Math.max(10, Math.min(100, numeric)) },
+    }))
   }
   function nextDomain() {
     if (domainIndex < DOMAINS.length - 1) setDomainIndex((value) => value + 1)
@@ -137,9 +169,15 @@ function OnboardingPage() {
   }
   function setVote(workId, type, value, vote) {
     const key = JSON.stringify([workId, type, value])
-    setVotes((prev) => ({ ...prev, [key]: vote }))
+    setVotes((prev) => {
+      const next = { ...prev }
+      if (vote === null) delete next[key]
+      else next[key] = vote
+      return next
+    })
   }
-  function getVote(workId, type, value) { return votes[JSON.stringify([workId, type, value])] || 0 }
+  // 0(보통)과 null(미선택)을 구분합니다.
+  function getVote(workId, type, value) { return votes[JSON.stringify([workId, type, value])] ?? null }
 
   async function finish() {
     if (saving || detailLoading || detailError) return
@@ -150,9 +188,9 @@ function OnboardingPage() {
       favorite_work_ids: chosen.map((work) => work.id),
       preferences: details.map((work) => ({
         work_id: work.id,
-        ratings: Object.entries({ genre: work.genres, director: work.directors, actor: work.actors })
+        ratings: Object.entries({ genre: work.genres, director: work.directors, actor: (work.actors || []).slice(0, 5) })
           .flatMap(([type, tags]) => tags.map((value) => ({ type, value, preference: getVote(work.id, type, value) })))
-          .filter((entry) => entry.preference !== 0),
+          .filter((entry) => entry.preference !== null),
       })),
     }
     try { await saveOnboarding(payload); setFinished(true) }
@@ -165,7 +203,7 @@ function OnboardingPage() {
   const preferenceGroups = current ? [
     ['genre', '장르', current.genres],
     ['director', current.category === '전시' ? '작가' : current.category === '영화' ? '감독' : '연출 / 제작', current.directors],
-    ['actor', current.category === '전시' ? '참여 작가 / 인물' : '배우', current.actors],
+    ['actor', current.category === '전시' ? '참여 작가 / 인물' : '배우', (current.actors || []).slice(0, 5)],
   ].filter((group) => group[2].length > 0) : []
 
   return <div className="onb-page">
@@ -175,7 +213,7 @@ function OnboardingPage() {
         <div className="onb-finished__mark">✓</div>
         <h1>취향 설정이 완료됐어요!</h1>
         <p>{ONBOARDING_DEMO ? '예시 화면의 취향 선택을 완료했어요. 실제 DB에 저장되지는 않았습니다.' : '선택한 취향을 서버에 저장했어요.'}</p>
-        <p className="onb-finished__caption">선택한 인생작 {chosen.length}개 · 선호 요소 {Object.values(votes).filter((v) => v !== 0).length}개</p>
+        <p className="onb-finished__caption">선택한 인생작 {chosen.length}개 · 선호 요소 {Object.values(votes).length}개</p>
         <Link to="/login" className="onb-btn onb-btn--primary">로그인 화면으로</Link>
       </section> : <>
         {stage === 1 && <>
@@ -188,7 +226,29 @@ function OnboardingPage() {
             <div className="onb-criteria-card__head"><h2>{domain.name}</h2><span>분야 {domainIndex + 1} / {DOMAINS.length}</span></div>
             {domain.items.map(([key, label, hint]) => <div className="onb-criterion" key={key}>
               <div className="onb-criterion__desc"><label htmlFor={`criterion-${domain.key}-${key}`}>{label}</label><small>{hint}</small></div>
-              <div className="onb-criterion__slider"><span>낮음</span><input id={`criterion-${domain.key}-${key}`} type="range" min="0" max="100" step="5" value={criteria[domain.key][key]} style={{ '--range-percent': `${criteria[domain.key][key]}%` }} onChange={(event) => changeCriterion(key, event.target.value)} aria-valuetext={`중요도 ${criteria[domain.key][key]}점`} /><span>높음</span></div>
+              <div className="onb-criterion__slider">
+                <div className="onb-criterion__scale">
+                  <div className="onb-criterion__scale-header">
+                    <span>중요도</span>
+                    <output htmlFor={`criterion-${domain.key}-${key}`}>
+                      {getCriterionValue(domain.key, key) / 10}<small>/10</small>
+                    </output>
+                  </div>
+                  <input
+                    id={`criterion-${domain.key}-${key}`}
+                    type="range"
+                    min="10" max="100" step="10"
+                    value={getCriterionValue(domain.key, key)}
+                    style={{ '--range-percent': `${((getCriterionValue(domain.key, key) - 10) / 90) * 100}%` }}
+                    onChange={(event) => changeCriterion(key, event.target.value)}
+                    aria-valuetext={`중요도 ${getCriterionValue(domain.key, key) / 10}점 (10점 만점)`}
+                  />
+                  <div className="onb-criterion__ticks" aria-hidden="true">
+                    {Array.from({ length: 10 }, (_, i) => <span key={i}>{i + 1}</span>)}
+                  </div>
+                  <div className="onb-criterion__ends" aria-hidden="true"><span>덜 중요함</span><span>매우 중요함</span></div>
+                </div>
+              </div>
             </div>)}
           </section>
           <div className="onb-actions"><button type="button" className="onb-btn onb-btn--outline" onClick={prevDomain}>{domainIndex === 0 ? '회원가입으로' : '이전 분야'}</button><button type="button" className="onb-btn onb-btn--primary" onClick={nextDomain}>{domainIndex === 3 ? '인생작 고르기' : '다음 분야'}</button></div>
@@ -220,13 +280,13 @@ function OnboardingPage() {
         </>}
         {stage === 3 && <>
           <h1>이 작품의 어떤 점이 좋았나요?</h1>
-          <p className="onb-subtitle">좋았던 요소에는 좋아요, 별로였던 요소에는 싫어요를 눌러주세요. 누르지 않은 요소는 반영하지 않습니다.</p>
+          <p className="onb-subtitle">각 요소에 대해 좋아요 · 보통 · 싫어요를 선택해 주세요. 선택하지 않은 요소는 반영하지 않습니다.</p>
           {detailLoading && <div className="onb-loading" role="status">선택한 작품의 상세정보를 조회하고 있어요…</div>}
           {detailError && <div className="onb-load-error" role="alert"><strong>작품 정보를 불러오지 못했어요.</strong><p>{detailError}</p><button className="onb-btn onb-btn--outline" type="button" onClick={() => setDetailRetry((v) => v + 1)}>다시 불러오기</button></div>}
           {!detailLoading && !detailError && current && <>
             <div className="onb-selected-banner"><span>인생작 {workIndex + 1} / {details.length}</span><div><h2>{current.title}</h2><span>{[current.category, current.year].filter(Boolean).join(' · ')}</span></div></div>
             {ONBOARDING_DEMO && <p className="onb-demo-note">예시 데이터 모드 · 실제 작품 DB 정보가 아닌 데모 정보입니다.</p>}
-            {preferenceGroups.length ? preferenceGroups.map(([type, title, tags]) => <section key={type} className="onb-preference-group"><h3>{title}{type === 'actor' && <small>모르는 배우는 누르지 않고 넘어가도 됩니다.</small>}</h3><div className="onb-vote-grid">{tags.map((name) => <PreferenceChip key={name} label={name} vote={getVote(current.id, type, name)} onVote={(value) => setVote(current.id, type, name, value)} />)}</div></section>) : <p className="onb-loading">이 작품에는 평가할 수 있는 장르·감독·배우 정보가 등록되지 않았어요. 다음 작품으로 넘어가도 됩니다.</p>}
+            {preferenceGroups.length ? preferenceGroups.map(([type, title, tags]) => <section key={type} className="onb-preference-group"><h3>{title}{type === 'actor' && <small>모르는 배우는 누르지 않고 넘어가도 됩니다.</small>}</h3><div className="onb-vote-grid">{tags.map((name) => <PreferenceChip key={name} label={name} vote={getVote(current.id, type, name)} onVote={(value) => setVote(current.id, type, name, value)} />)}</div></section>) : <p className="onb-loading">이 작품에는 평가할 수 있는 장르·감독·배우·장소 정보가 등록되지 않았어요. 다음 작품으로 넘어가도 됩니다.</p>}
           </>}
           <div className="onb-actions onb-actions--bottom"><button type="button" className="onb-btn onb-btn--outline" onClick={() => { if (workIndex > 0) setWorkIndex((v) => v - 1); else setStage(2) }}>이전</button><button type="button" className="onb-btn onb-btn--primary" disabled={detailLoading || !!detailError || saving || !current} onClick={() => workIndex < details.length - 1 ? setWorkIndex((v) => v + 1) : finish()}>{saving ? '저장 중…' : current && workIndex === details.length - 1 ? '취향 설정 완료' : `다음 작품 (${workIndex + 2} / ${details.length})`}</button></div>
           {saveError && <p className="onb-error" role="alert">{saveError}</p>}

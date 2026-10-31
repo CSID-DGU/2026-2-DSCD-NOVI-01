@@ -1,9 +1,11 @@
-// 작품 검색 / 상세정보 / 온보딩 저장 API
-// 실제 API가 없을 때만 DEMO_WORKS로 작동합니다. DB에서 조회했다고 표시하지 않습니다.
+// 온보딩 작품 검색 / 상세 조회 / 취향 저장 API
+// 검색·상세 조회: 공용 PostgreSQL 작품 DB의 실제 정보 사용
+// 저장 API: 팀에서 구현할 때까지 요청하지 않고 명확한 안내를 표시
 import { DEMO_WORKS } from '../pages/Onboarding/demoWorks.js'
 
+// Vite 프록시가 설정되어 있다면 별도의 API_BASE_URL이 필요하지 않습니다.
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
-export const ONBOARDING_DEMO = !API_BASE
+export const ONBOARDING_DEMO = import.meta.env.VITE_ONBOARDING_DEMO === 'true'
 
 const CATEGORY_LABELS = {
   movie: '영화', film: '영화', movies: '영화', 영화: '영화',
@@ -24,7 +26,6 @@ function toNames(value) {
   return []
 }
 
-// 백엔드 JSON의 형태를 화면에서 쓰는 동일한 데이터 모델로 정규화합니다.
 export function normalizeWork(raw) {
   if (!raw || typeof raw !== 'object') return null
   const id = raw.id ?? raw.work_id ?? raw.workId
@@ -35,11 +36,12 @@ export function normalizeWork(raw) {
     id: String(id),
     title: String(title),
     category: CATEGORY_LABELS[String(raw.category ?? raw.category_name ?? raw.type ?? '').toLowerCase()] ?? String(raw.category ?? raw.category_name ?? raw.type ?? '기타'),
-    year: raw.year ?? raw.release_year ?? raw.production_year ?? null,
+    year: raw.year ?? raw.release_year ?? raw.production_year ?? (typeof raw.date === 'string' ? raw.date.slice(0, 4) : null),
     genres: toNames(raw.genres ?? raw.genre),
     directors: toNames(raw.directors ?? raw.director ?? raw.creators ?? raw.creator),
     actors: toNames(raw.actors ?? raw.cast ?? raw.performers),
     venue: toNames(raw.venue ?? raw.venues ?? raw.location),
+    imageUrl: raw.image_url ?? '',
   }
 }
 
@@ -53,7 +55,7 @@ async function jsonRequest(path, { signal, method = 'GET', body } = {}) {
   })
   if (!response.ok) {
     const errData = await response.json().catch(() => null)
-    throw new Error(errData?.message || `서버 요청에 실패했습니다. (${response.status})`)
+    throw new Error(errData?.message || errData?.error || `서버 요청에 실패했습니다. (${response.status})`)
   }
   if (response.status === 204) return {}
   return response.json()
@@ -66,7 +68,6 @@ export async function searchWorks(query, signal) {
     const lower = trimmed.toLocaleLowerCase('ko')
     return DEMO_WORKS.filter((work) => work.title.toLocaleLowerCase('ko').includes(lower))
   }
-  // 예상 규격: GET /api/works/search?q=인&limit=10 → { results: [{ id, title, category, year }] }
   const data = await jsonRequest(`/api/works/search?q=${encodeURIComponent(trimmed)}&limit=10`, { signal })
   const rows = Array.isArray(data) ? data : data.results ?? data.works
   if (!Array.isArray(rows)) throw new Error('작품 검색 API 응답에서 results 배열을 찾을 수 없어요.')
@@ -79,15 +80,23 @@ export async function getWorkDetail(id, signal) {
     if (!work) throw new Error('예시 작품의 상세정보를 찾을 수 없어요.')
     return work
   }
-  // 예상 규격: GET /api/works/:id → { id,title,category,year,genres,directors,actors,venue }
-  const data = await jsonRequest(`/api/works/${encodeURIComponent(id)}`, { signal })
+
+  // 두 테이블에 동일한 숫자 PK가 존재할 수 있으므로 category:id 복합 ID를 사용합니다.
+  const match = /^(movie|musical|play|exhibition):([1-9]\d*)$/.exec(String(id))
+  if (!match) throw new Error('작품 ID 형식이 올바르지 않습니다.')
+  const [, category, recordId] = match
+  const data = await jsonRequest(`/api/works/${category}/${recordId}`, { signal })
   const work = normalizeWork(data.work ?? data)
   if (!work) throw new Error(`작품(${id}) 상세정보에 ID 또는 제목이 없습니다.`)
   return work
 }
 
 export async function saveOnboarding(payload) {
-  if (ONBOARDING_DEMO) return { demo: true } // 저장됐다고 속이지 않음
-  // 예상 규격: POST /api/onboarding/preferences → { success: true }
+  if (ONBOARDING_DEMO) return { demo: true }
+
+  if (import.meta.env.VITE_ONBOARDING_SAVE_ENABLED !== 'true') {
+    throw new Error('작품 검색과 취향 평가에는 실제 DB가 연결됐지만, 사용자별 온보딩 저장 API는 아직 연결되지 않았어요. 팀과 저장 방식을 협의한 후 활성화해 주세요.')
+  }
+  // 저장 엔드포인트 구현·인증 연결이 끝난 뒤에만 활성화하세요.
   return jsonRequest('/api/onboarding/preferences', { method: 'POST', body: payload })
 }
