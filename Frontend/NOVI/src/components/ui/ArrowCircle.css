@@ -1,0 +1,15 @@
+.tt-arrow-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  border-radius: 50%;
+  color: #252c50;
+  transition: transform .2s, box-shadow .2s;
+}
+.tt-arrow-circle:hover { transform: translateX(3px); box-shadow: 0 4px 12px rgba(40, 40, 80, .08); }
+.tt-arrow-circle:focus-visible { outline: 3px solid #7764cd; outline-offset: 3px; }
+.tt-arrow-circle--white { background: #fff; }
+.tt-arrow-circle--lavender { background: #f1ecfa; }

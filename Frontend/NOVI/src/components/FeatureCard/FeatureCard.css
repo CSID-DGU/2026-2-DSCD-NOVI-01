@@ -1,0 +1,34 @@
+.tt-feature-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 267px;
+  padding: 34px 32px 32px;
+  border-radius: 28px;
+  overflow: hidden;
+}
+.tt-feature-card--blue { background: #d9e8f9; }
+.tt-feature-card--lavender { background: #e8e1f7; }
+.tt-feature-card__eyebrow { color: #405494; font-size: 14px; font-weight: 700; }
+.tt-feature-card--lavender .tt-feature-card__eyebrow { color: #6c59b3; }
+.tt-feature-card__title {
+  margin: 17px 0 7px;
+  color: #282b4d;
+  font: 400 clamp(30px, 3vw, 39px)/1.2 var(--font-serif, 'Gowun Batang', serif);
+  letter-spacing: -.035em;
+}
+.tt-feature-card__description { margin: 0; color: #626985; font-size: 14px; line-height: 1.8; }
+.tt-feature-card__bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.tt-feature-card__tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tt-feature-card__tags span { padding: 8px 14px; border-radius: 22px; color: #353b60; background: #fff; font-size: 11px; }
+.tt-feature-card__tickets { position: relative; height: 64px; width: 176px; flex: 0 0 176px; }
+.tt-feature-card__tickets span { position: absolute; bottom: 0; width: 78px; height: 45px; border-radius: 6px; background: white; }
+.tt-feature-card__tickets span:nth-child(1) { left: 0; }
+.tt-feature-card__tickets span:nth-child(2) { left: 46px; bottom: 12px; background: #f7f4ff; }
+.tt-feature-card__tickets span:nth-child(3) { left: 92px; bottom: 24px; background: white; }
+@media(max-width: 560px) {
+  .tt-feature-card { padding: 28px 24px; min-height: 255px; }
+  .tt-feature-card__title { font-size: 35px; }
+  .tt-feature-card__tags span { padding: 7px 11px; }
+}

@@ -1,0 +1,17 @@
+.novi-works-section { width: 100%; max-width: 1200px; margin: 32px auto 60px; padding: 0 24px; color: var(--navy, #262a4a); }
+.novi-works-section__header { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.novi-works-section__header h2 { margin: 0 0 8px; font-family: var(--font-serif, serif); font-size: clamp(23px, 3vw, 30px); }
+.novi-works-section__header p { margin: 0; color: var(--muted, #5b6078); font-size: 14px; }
+.novi-works-section__count { color: var(--muted, #5b6078); font-size: 13px; white-space: nowrap; }
+.novi-works-section__toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 22px; }
+.novi-works-section__tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.novi-works-section__tab { cursor: pointer; border: 1px solid var(--line, #e3e6f2); background: white; border-radius: 50px; padding: 9px 18px; font-weight: 700; font-size: 13px; transition: background .15s ease; }
+.novi-works-section__tab.is-active { background: var(--purple, #6a5ab4); border-color: var(--purple, #6a5ab4); color: white; }
+.novi-works-section__tab:focus-visible, .novi-works-section__search:focus-visible { outline: 2px solid var(--purple, #6a5ab4); outline-offset: 2px; }
+.novi-works-section__search { background: white; border: 1px solid var(--line, #e3e6f2); border-radius: 10px; padding: 10px 13px; min-width: 190px; width: min(275px, 100%); font-size: 13px; }
+.novi-works-section__grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 18px; }
+.novi-works-section__message { margin: 0; min-height: 130px; display: flex; gap: 12px; flex-direction: column; align-items: center; justify-content: center; background: white; border: 1px solid var(--line, #e3e6f2); border-radius: 14px; color: var(--muted, #5b6078); font-size: 14px; text-align: center; padding: 24px; }
+.novi-works-section__message p { margin: 0; }
+.novi-works-section__message button { cursor: pointer; border-radius: 8px; background: var(--purple, #6a5ab4); border: 0; padding: 9px 17px; color: white; font-weight: 700; }
+@media (max-width: 1024px) { .novi-works-section__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .novi-works-section { padding: 0 16px; } .novi-works-section__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .novi-works-section__header { align-items: start; flex-direction: column; } .novi-works-section__toolbar { align-items: stretch; } .novi-works-section__search { width: 100%; } }

@@ -1,0 +1,16 @@
+.novi-work-card {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #e3e6f2);
+  box-shadow: 0 5px 18px rgba(38, 42, 74, .035);
+}
+.novi-work-card__poster { position: relative; width: 100%; aspect-ratio: 2 / 3; background: #eeecf8; overflow: hidden; }
+.novi-work-card__poster > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.novi-work-card__fallback { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; width: 100%; height: 100%; color: #79718e; font-size: 12px; }
+.novi-work-card__fallback-symbol { font-size: 36px; color: var(--purple, #6a5ab4); }
+.novi-work-card__category { position: absolute; left: 10px; top: 10px; padding: 4px 9px; border-radius: 7px; background: rgba(255,255,255,.95); color: var(--purple, #6a5ab4); font-size: 11px; font-weight: 700; }
+.novi-work-card__body { padding: 13px 12px 15px; }
+.novi-work-card__title { margin: 0 0 6px; font-weight: 700; font-size: 14px; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.novi-work-card__meta { margin: 0; color: var(--muted, #5b6078); font-size: 12px; line-height: 1.5; min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
