@@ -1,0 +1,116 @@
+.tt-picks-overlay {
+  --overlay-tone: #d0e2f7;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.tt-picks-overlay--musical { --overlay-tone: #FFFFFF; }
+.tt-picks-overlay--play { --overlay-tone: #FFFFFF; }
+.tt-picks-overlay--exhibition { --overlay-tone: #FFFFFF; }
+.tt-picks-overlay--movie { --overlay-tone: #FFFFFF; }
+
+.tt-picks-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(18, 20, 38, .55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.tt-picks-overlay__panel {
+  position: relative;
+  width: min(1152px, 100%);
+  max-height: 100%;
+  padding: 28px 32px 32px;
+  overflow: auto;
+  border-radius: 32px;
+  background: var(--overlay-tone);
+  color: #262a4a;
+  transform-origin: top left;
+  will-change: transform;
+}
+
+.tt-picks-overlay__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.tt-picks-overlay__title {
+  margin: 0;
+  font: 400 30px/1.25 var(--font-serif, 'Gowun Batang', serif);
+  letter-spacing: -.02em;
+}
+.tt-picks-overlay__subtitle { margin: 6px 0 0; color: #5b6078; font-size: 14px; }
+
+.tt-picks-overlay__close {
+  display: grid;
+  flex: 0 0 40px;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #262a4a;
+  cursor: pointer;
+  transition: background .15s;
+}
+.tt-picks-overlay__close:hover { background: #f4f0ff; }
+.tt-picks-overlay__close:focus-visible { outline: 3px solid #8572d9; outline-offset: 3px; }
+
+.tt-picks-overlay__list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0 0;
+  padding: 8px 4px;
+  list-style: none;
+}
+.tt-picks-overlay__item { display: flex; min-width: 0; }
+.tt-picks-overlay__item .tt-pick-card {
+  flex: 1;
+  transition: transform .25s cubic-bezier(.2, .8, .2, 1), box-shadow .25s;
+}
+@media (hover: hover) {
+  .tt-picks-overlay__item:hover .tt-pick-card {
+    transform: scale(1.04);
+    box-shadow: 0 16px 36px rgba(38, 42, 74, .16);
+  }
+}
+.tt-picks-overlay__item .tt-pick-card__body { padding: 20px 16px 18px; }
+
+.tt-picks-overlay__empty {
+  margin: 24px 0 0;
+  padding: 40px 24px;
+  border-radius: 24px;
+  background: #fff;
+  color: #5b6078;
+  font-size: 14px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .tt-picks-overlay__list {
+    display: flex;
+    gap: 14px;
+    padding: 8px 4px 16px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+  .tt-picks-overlay__item { flex: 0 0 200px; scroll-snap-align: start; }
+}
+@media (max-width: 600px) {
+  .tt-picks-overlay { padding: 12px; }
+  .tt-picks-overlay__panel { padding: 20px 16px 20px; border-radius: 24px; }
+  .tt-picks-overlay__title { font-size: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tt-picks-overlay__item .tt-pick-card,
+  .tt-picks-overlay__close { transition: none; }
+}

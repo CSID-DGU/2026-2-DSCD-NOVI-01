@@ -1,0 +1,93 @@
+.tt-category-card {
+  --cat-tone: #d0e2f7;
+  --cat-accent: #b9d3f0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 28px;
+  background: #fff;
+  color: #262a4a;
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .25s cubic-bezier(.2, .8, .2, 1), box-shadow .25s;
+}
+.tt-category-card--musical { --cat-tone: #d0e2f7; --cat-accent: #b9d3f0; }
+.tt-category-card--play { --cat-tone: #e3d9f6; --cat-accent: #d3c4f0; }
+.tt-category-card--exhibition { --cat-tone: #d6e9f6; --cat-accent: #c9d8f2; }
+.tt-category-card--movie { --cat-tone: #ddd3f2; --cat-accent: #b9a6e6; }
+
+@media (hover: hover) {
+  .tt-category-card:hover:not(:disabled) {
+    transform: scale(1.04);
+    box-shadow: 0 16px 36px rgba(38, 42, 74, .14);
+  }
+}
+.tt-category-card:focus-visible {
+  transform: scale(1.04);
+  box-shadow: 0 16px 36px rgba(38, 42, 74, .14);
+}
+.tt-category-card:focus-visible { outline: 3px solid #8572d9; outline-offset: 4px; }
+.tt-category-card:disabled { cursor: default; opacity: .6; }
+
+.tt-category-card__poster {
+  position: relative;
+  display: block;
+  height: 260px;
+  background: var(--cat-tone);
+  overflow: hidden;
+}
+.tt-category-card__shape { position: absolute; display: block; border-radius: 50%; }
+.tt-category-card__shape--b { display: none; }
+
+.tt-category-card--musical .tt-category-card__shape--a {
+  top: -60px; right: -50px; width: 220px; height: 220px; background: var(--cat-accent);
+}
+.tt-category-card--play .tt-category-card__shape--a {
+  bottom: -90px; left: -60px; width: 240px; height: 240px; background: var(--cat-accent);
+}
+.tt-category-card--exhibition .tt-category-card__shape--a {
+  top: 36px; right: 120px; width: 64px; height: 64px; background: #b9d8ee;
+}
+.tt-category-card--exhibition .tt-category-card__shape--b {
+  display: block; top: 64px; right: 30px; width: 110px; height: 110px; background: var(--cat-accent);
+}
+.tt-category-card--movie .tt-category-card__shape--a {
+  top: 28px; right: 28px; width: 150px; height: 150px; border: 2px solid var(--cat-accent);
+}
+
+.tt-category-card__name {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  font: 400 34px/1.2 var(--font-serif, 'Gowun Batang', serif);
+  letter-spacing: -.02em;
+}
+
+.tt-category-card__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 76px;
+  padding: 16px 20px 16px 24px;
+}
+.tt-category-card__desc { color: #5b6078; font-size: 14px; }
+.tt-category-card__arrow {
+  display: grid;
+  flex: 0 0 36px;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f1ecfa;
+  color: #252c50;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-category-card { transition: none; }
+}

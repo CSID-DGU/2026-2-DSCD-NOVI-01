@@ -1,0 +1,130 @@
+.tt-pick-card {
+  --pick-tone: #d0e2f7;
+  --pick-accent: #b9d3f0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: 28px;
+  background: #fff;
+  overflow: hidden;
+}
+.tt-pick-card--musical { --pick-tone: #d0e2f7; --pick-accent: #b9d3f0; }
+.tt-pick-card--play { --pick-tone: #e3d9f6; --pick-accent: #d3c4f0; }
+.tt-pick-card--exhibition { --pick-tone: #d6e9f6; --pick-accent: #c9d8f2; }
+.tt-pick-card--movie { --pick-tone: #ddd3f2; --pick-accent: #d3c4f0; }
+
+.tt-pick-card__poster {
+  position: relative;
+  height: 210px;
+  background: var(--pick-tone);
+  overflow: hidden;
+  transition: height .35s ease;
+}
+.tt-pick-card--featured .tt-pick-card__poster { height: 270px; }
+.tt-pick-card__poster > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.tt-pick-card__fallback { position: relative; width: 100%; height: 100%; }
+.tt-pick-card__circle {
+  position: absolute;
+  top: -40px;
+  right: -30px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: var(--pick-accent);
+  transition: top .35s ease, right .35s ease;
+}
+.tt-pick-card--featured .tt-pick-card__circle { width: 160px; height: 160px; top: -25px; right: 0; }
+.tt-pick-card__fallback-title {
+  position: absolute;
+  right: 22px;
+  bottom: 24px;
+  left: 22px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: #262a4a;
+  font: 400 26px/1.3 var(--font-serif, 'Gowun Batang', serif);
+  letter-spacing: -.02em;
+  word-break: keep-all;
+  transition: font-size .35s ease;
+}
+.tt-pick-card--featured .tt-pick-card__fallback-title { font-size: 32px; }
+
+.tt-pick-card__category {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: #fff;
+  color: #262a4a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tt-pick-card__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 190px;
+  padding: 22px 20px 20px;
+  transition: min-height .35s ease, padding .35s ease;
+}
+.tt-pick-card--featured .tt-pick-card__body { min-height: 210px; padding: 24px 24px 22px; }
+
+.tt-pick-card__title {
+  margin: 0;
+  overflow: hidden;
+  color: #262a4a;
+  font: 400 20px/1.4 var(--font-serif, 'Gowun Batang', serif);
+  letter-spacing: -.02em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: font-size .35s ease;
+}
+.tt-pick-card--featured .tt-pick-card__title { font-size: 22px; }
+
+.tt-pick-card__info { margin: 14px 0 16px; font-size: 13px; line-height: 1.6; }
+.tt-pick-card__row { display: grid; grid-template-columns: 34px minmax(0, 1fr); }
+.tt-pick-card__row + .tt-pick-card__row { margin-top: 4px; }
+.tt-pick-card__row dt { color: #5b6078; }
+.tt-pick-card__row dd {
+  margin: 0;
+  overflow: hidden;
+  color: #262a4a;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tt-pick-card__row--wrap dd { white-space: normal; text-overflow: clip; }
+
+.tt-pick-card__reason {
+  align-self: flex-start;
+  max-width: 100%;
+  margin-top: auto;
+  padding: 7px 16px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #f1ecfa;
+  color: #3f3a78;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tt-pick-card__reason--explore { background: #dceaf8; color: #2f3f78; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-pick-card__poster,
+  .tt-pick-card__circle,
+  .tt-pick-card__fallback-title,
+  .tt-pick-card__body,
+  .tt-pick-card__title { transition: none; }
+}
