@@ -1,3 +1,4 @@
+import { saveOnboardingToDB } from './onboarding.js'
 // 온보딩 작품 검색 / 상세 조회 / 취향 저장 API
 // 검색·상세 조회: 공용 PostgreSQL 작품 DB의 실제 정보 사용
 // 저장 API: 팀에서 구현할 때까지 요청하지 않고 명확한 안내를 표시
@@ -92,11 +93,8 @@ export async function getWorkDetail(id, signal) {
 }
 
 export async function saveOnboarding(payload) {
-  if (ONBOARDING_DEMO) return { demo: true }
-
-  if (import.meta.env.VITE_ONBOARDING_SAVE_ENABLED !== 'true') {
-    throw new Error('작품 검색과 취향 평가에는 실제 DB가 연결됐지만, 사용자별 온보딩 저장 API는 아직 연결되지 않았어요. 팀과 저장 방식을 협의한 후 활성화해 주세요.')
+  if (ONBOARDING_DEMO) {
+    throw new Error('데모 모드에서는 실제 사용자 DB에 취향을 저장할 수 없습니다. VITE_ONBOARDING_DEMO 설정을 해제해 주세요.')
   }
-  // 저장 엔드포인트 구현·인증 연결이 끝난 뒤에만 활성화하세요.
-  return jsonRequest('/api/onboarding/preferences', { method: 'POST', body: payload })
+  return saveOnboardingToDB(payload)
 }
