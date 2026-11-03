@@ -24,7 +24,7 @@ export default function AppHeader() {
     setLogoutError('')
 
     try {
-      // 기존 src/api/auth.js의 POST /api/users/logout (CSRF + 세션 쿠키)
+      // 현재 API 명세서에는 로그아웃 API가 없습니다. 구현 전까지 안내 오류를 표시합니다.
       await logout()
       navigate('/login', { replace: true })
     } catch (err) {

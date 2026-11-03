@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
-import { getSavedOnboarding, updateSurveyCriteria } from '../../api/onboarding.js'
+import { getSavedOnboarding } from '../../api/onboarding.js'
 import './PreferenceSettingsModal.css'
 
-// 기존 온보딩의 순서와 라벨을 유지합니다. 인생작·요소별 평가는 변경하지 않습니다.
+// API 명세 기준. 별도 PATCH API가 나오기 전까지 조회·화면 미리보기만 가능합니다.
 const DOMAINS = [
-  { key: 'movie', name: '영화', fields: [['genre', '장르'], ['director', '감독'], ['actor', '배우']] },
-  { key: 'play', name: '연극', fields: [['genre', '장르'], ['director', '연출'], ['actor', '배우']] },
-  { key: 'musical', name: '뮤지컬', fields: [['genre', '장르'], ['director', '연출'], ['actor', '배우']] },
-  { key: 'exhibition', name: '전시', fields: [['genre', '주제'], ['director', '작가'], ['actor', '전시 형태']] },
+  { key: 'movie', name: '영화', fields: [['genre', '장르'], ['actor', '배우'], ['director_venue', '감독']] },
+  { key: 'play', name: '연극', fields: [['genre', '장르'], ['actor', '출연진'], ['director_venue', '장소']] },
+  { key: 'musical', name: '뮤지컬', fields: [['genre', '장르'], ['actor', '출연진'], ['director_venue', '장소']] },
+  { key: 'exhibition', name: '전시', fields: [['genre', '주제'], ['actor', '작가'], ['director_venue', '장소']] },
 ]
-const REQUIRED_FIELDS = ['genre', 'director', 'actor']
+const REQUIRED_FIELDS = ['genre', 'actor', 'director_venue']
 
 function validCriteria(value) {
   if (!value || typeof value !== 'object') return false
@@ -67,24 +67,7 @@ export default function PreferenceSettingsModal({ open, onClose }) {
     setError('')
     setDone('')
   }
-  const save = async () => {
-    if (!ready || saving) return
-    if (DOMAINS.some(({ key }) => REQUIRED_FIELDS.every(field => criteria[key][field] === 0))) {
-      setError('중요도 세 항목을 모두 0으로 설정할 수는 없어요.')
-      return
-    }
-    setSaving(true)
-    setError('')
-    setDone('')
-    try {
-      await updateSurveyCriteria(criteria)
-      setDone('카테고리별 중요도가 사용자 DB에 저장됐어요.')
-    } catch (err) {
-      setError(err.message || '중요도 저장에 실패했어요.')
-    } finally {
-      setSaving(false)
-    }
-  }
+  // 중요도만 저장하는 API는 명세서에 없습니다. 전체 온보딩 POST를 쓰면 인생작이 바뀔 수 있습니다.
 
   return (
     <div className="mt-modal-backdrop" onMouseDown={event => { if(event.target === event.currentTarget && !saving) onClose() }}>
@@ -93,7 +76,7 @@ export default function PreferenceSettingsModal({ open, onClose }) {
           <div><div className="mt-preference-dialog__eyebrow">MY PREFERENCES</div><h2 id="mt-preference-title">취향 설정 수정</h2></div>
           <button type="button" className="mt-modal-close" disabled={saving} onClick={onClose} aria-label="닫기">×</button>
         </div>
-        <p className="mt-preference-dialog__hint">처음 온보딩에서 정한 분야별 중요도만 수정할 수 있어요. 인생작과 작품별 좋아요·싫어요는 그대로 유지돼요.</p>
+        <p className="mt-preference-dialog__hint">저장된 중요도를 확인할 수 있어요. 중요도만 변경하는 API가 아직 없어 이 화면의 수정은 저장되지 않습니다. 인생작은 변경하지 않아요.</p>
         {loading && <p role="status">저장된 중요도를 불러오는 중…</p>}
         {!loading && error && !validCriteria(criteria) && (
           <div role="alert"><p className="mt-preference-error">{error}</p><button type="button" onClick={() => setRetry(n => n + 1)}>다시 불러오기</button></div>
@@ -115,7 +98,7 @@ export default function PreferenceSettingsModal({ open, onClose }) {
           {done && <p role="status" className="mt-preference-success">{done}</p>}
           <div className="mt-preference-buttons">
             <button type="button" className="mt-btn mt-btn--outline" disabled={saving} onClick={onClose}>닫기</button>
-            <button type="button" className="mt-btn mt-btn--purple" disabled={!ready || saving} onClick={save}>{saving ? '저장 중…' : '변경사항 저장'}</button>
+            <button type="button" className="mt-btn mt-btn--purple" disabled title="중요도만 수정하는 백엔드 API가 아직 명세에 없습니다.">저장 API 준비 중</button>
           </div>
         </div>
       </section>
