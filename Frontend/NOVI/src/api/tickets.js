@@ -11,7 +11,7 @@
  */
 
 const TICKETS_ENDPOINT = import.meta.env.VITE_TICKET_API_PATH || '/api/tickets/'
-const CSRF_ENDPOINT = import.meta.env.VITE_CSRF_API_PATH || '/api/users/csrf'
+const CSRF_ENDPOINT = import.meta.env.VITE_CSRF_API_PATH
 
 function getCookie(name) {
   const item = document.cookie.split('; ').find((part) => part.startsWith(`${name}=`))
@@ -26,6 +26,8 @@ async function prepareCsrf(signal) {
   // 기존 브라우저 세션에 CSRF 쿠키가 있으면 재사용합니다.
   let token = getCookie('csrftoken')
   if (token) return token
+
+  if (!CSRF_ENDPOINT) return '' // CSRF 준비 API 미정. 403 발생 시 백엔드와 협의 필요.
 
   let response
   try {
@@ -48,7 +50,8 @@ async function request(url, { method = 'GET', body, signal } = {}) {
   const headers = { Accept: 'application/json' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) {
-    headers['X-CSRFToken'] = await prepareCsrf(signal)
+    const token = await prepareCsrf(signal)
+    if (token) headers['X-CSRFToken'] = token
   }
 
   let response

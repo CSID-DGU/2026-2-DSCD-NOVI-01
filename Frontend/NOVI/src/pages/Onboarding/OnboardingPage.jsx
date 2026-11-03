@@ -4,31 +4,32 @@ import Logo from '../../components/Logo.jsx'
 import { ONBOARDING_DEMO, getWorkDetail, saveOnboarding, searchWorks } from '../../api/works.js'
 import './OnboardingPage.css'
 
+// 백엔드 API 명세서 기준: 영화는 감독, 공연·전시는 장소 중요도를 평가합니다.
+// 장소 항목은 기존 화면에서 제거되어 있었지만 이번 버전은 API 명세를 우선 적용합니다.
 const DOMAINS = [
   { key: 'movie', name: '영화', items: [
     ['genre', '장르', '드라마, 스릴러, SF 같은 구분'],
-    ['director', '감독', '믿고 보는 감독이 있는지'],
     ['actor', '배우', '출연 배우를 보고 고르는지'],
+    ['director_venue', '감독', '믿고 보는 감독이 있는지'],
   ] },
   { key: 'play', name: '연극', items: [
     ['genre', '장르', '코미디, 추리, 드라마 같은 구분'],
-    ['director', '연출', '연출자의 스타일을 중요하게 보는지'],
-    ['actor', '배우', '출연 배우를 보고 고르는지'],
+    ['actor', '출연진', '출연 배우를 보고 고르는지'],
+    ['director_venue', '장소', '공연장을 중요하게 보는지'],
   ] },
   { key: 'musical', name: '뮤지컬', items: [
     ['genre', '장르', '로맨스, 역사, 판타지 같은 구분'],
-    ['director', '연출', '연출자의 스타일을 중요하게 보는지'],
-    ['actor', '배우', '출연 배우를 보고 고르는지'],
+    ['actor', '출연진', '출연 배우를 보고 고르는지'],
+    ['director_venue', '장소', '공연장을 중요하게 보는지'],
   ] },
   { key: 'exhibition', name: '전시', items: [
     ['genre', '주제', '현대미술, 사진, 미디어아트 등'],
-    ['director', '작가', '좋아하는 작가가 있는지'],
-    ['actor', '전시 형태', '체험형, 관람형 등 형식의 선호도'],
+    ['actor', '작가', '관심 있는 작가가 있는지'],
+    ['director_venue', '장소', '전시장 위치를 중요하게 보는지'],
   ] },
 ]
-
 const INITIAL_CRITERIA = Object.fromEntries(DOMAINS.map((domain) => [domain.key, {
-  genre: 70, director: 50, actor: 60,
+  genre: 70, actor: 60, director_venue: 50,
 }]))
 
 function SearchIcon() {
@@ -84,6 +85,7 @@ function OnboardingPage() {
   const [votes, setVotes] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [criteriaError, setCriteriaError] = useState('')
   const [finished] = useState(false)
 
   useEffect(() => {
@@ -130,8 +132,15 @@ function OnboardingPage() {
       ...prev,
       [domain.key]: { ...prev[domain.key], [key]: Math.max(0, Math.min(100, Math.round(numeric / 10) * 10)) },
     }))
+    setCriteriaError('')
   }
   function nextDomain() {
+    const { key } = DOMAINS[domainIndex]
+    if (['genre', 'actor', 'director_venue'].every(field => getCriterionValue(key, field) === 0)) {
+      setCriteriaError('중요도 세 항목을 모두 0으로 설정할 수 없어요.')
+      return
+    }
+    setCriteriaError('')
     if (domainIndex < DOMAINS.length - 1) setDomainIndex((value) => value + 1)
     else setStage(2)
   }
@@ -168,13 +177,19 @@ function OnboardingPage() {
     const payload = {
       criteria,
       favorite_work_ids: chosen.map((work) => work.id),
-      preferences: details.map((work) => ({
-        work_id: work.id,
-        ratings: Object.entries({ genre: work.genres, director: work.directors, actor: (work.actors || []).slice(0, 5) })
-          .flatMap(([type, tags]) => (tags || []).map((value) => ({
-            type, value, preference: getVote(work.id, type, value),
-          }))),
-      })),
+      preferences: details.map((work) => {
+        // API 명세: 감독(영화)/장소(공연·전시)는 작품당 숫자 하나만 저장합니다.
+        const directorOrVenue = (work.category === '영화' ? work.directors : work.venue) || []
+        const firstDirectorOrVenue = directorOrVenue[0]
+        return {
+          work_id: work.id,
+          ratings: Object.entries({ genre: work.genres, actor: (work.actors || []).slice(0, 5) })
+            .flatMap(([type, tags]) => (tags || []).map((value) => ({
+              type, value, preference: getVote(work.id, type, value),
+            }))),
+          director_venue_pref: firstDirectorOrVenue ? getVote(work.id, 'director_venue', firstDirectorOrVenue) : 0,
+        }
+      }),
     }
     try { await saveOnboarding(payload); navigate('/home') }
     catch (err) { setSaveError(err.message) }
@@ -185,8 +200,9 @@ function OnboardingPage() {
   const current = details[workIndex]
   const preferenceGroups = current ? [
     ['genre', '장르', current.genres],
-    ['director', current.category === '전시' ? '작가' : current.category === '영화' ? '감독' : '연출 / 제작', current.directors],
-    ['actor', current.category === '전시' ? '참여 작가 / 인물' : '배우', (current.actors || []).slice(0, 5)],
+    ['actor', current.category === '전시' ? '작가' : '출연진', (current.actors || []).slice(0, 5)],
+    ['director_venue', current.category === '영화' ? '감독' : '장소',
+      (current.category === '영화' ? (current.directors || []) : (current.venue || [])).slice(0, 1)],
   ].filter((group) => group[2].length > 0) : []
 
   return <div className="onb-page">
@@ -228,6 +244,7 @@ function OnboardingPage() {
               </div>
             </div>)}
           </section>
+          {criteriaError && <p className="onb-error" role="alert">{criteriaError}</p>}
           <div className="onb-actions"><button type="button" className="onb-btn onb-btn--outline" onClick={prevDomain}>{domainIndex === 0 ? '회원가입으로' : '이전 분야'}</button><button type="button" className="onb-btn onb-btn--primary" onClick={nextDomain}>{domainIndex === 3 ? '인생작 고르기' : '다음 분야'}</button></div>
         </>}
         {stage === 2 && <>

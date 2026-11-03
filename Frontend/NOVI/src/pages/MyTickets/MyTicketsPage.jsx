@@ -53,7 +53,7 @@ export default function MyTicketsPage() {
           </div>
         </div>
         {location.state?.ticketSaved && <p role="status">티켓이 PostgreSQL에 저장되었어요.</p>}
-        <p className="mt-demo-banner" role="note">티켓·관람 일기는 로그인 사용자 DB에서 불러옵니다. 취향 설정 수정은 아직 브라우저 임시 저장 방식입니다.</p>
+        <p className="mt-demo-banner" role="note">티켓 조회 API는 별도 명세가 필요합니다. 취향 중요도는 조회만 가능하며 변경 저장 API는 아직 정의되지 않았습니다.</p>
         <section className="mt-stats" aria-label="나의 관람 통계">
           <div><span>관람 기록</span><strong>{tickets.length} <small>편</small></strong></div>
           <div><span>작성한 일기</span><strong>{diaryCount} <small>개</small></strong></div>
