@@ -15,20 +15,18 @@ function LoginPage() {
   async function handleSubmit(e) {
     e.preventDefault()
     if (submitting) return
-
     const trimmed = nickname.trim()
     if (!trimmed || !password) {
       setError('닉네임과 비밀번호를 모두 입력해 주세요.')
       return
     }
-
     setError('')
     setSubmitting(true)
     try {
       await login({ nickname: trimmed, password })
-      navigate('/')
+      navigate('/home', { replace: true }) // /는 로그인으로 리다이렉트하므로 홈으로 이동
     } catch (err) {
-      setError(err.message)
+      setError(err.message || '로그인에 실패했어요.')
     } finally {
       setSubmitting(false)
     }
@@ -40,33 +38,23 @@ function LoginPage() {
         <Logo />
         <div className="login-header__right">
           <span className="login-header__hint">아직 회원이 아니신가요?</span>
-          <Link to="/signup" className="pill-button">
-            회원가입
-          </Link>
+          <Link to="/signup" className="pill-button">회원가입</Link>
         </div>
       </header>
-
       <main className="ticket-card">
         <section className="ticket-card__stub" aria-hidden="true">
           <span className="ticket-card__circle ticket-card__circle--lavender" />
           <span className="ticket-card__circle ticket-card__circle--sky" />
           <div className="ticket-card__stub-text">
             <p className="ticket-card__eyebrow">WELCOME BACK</p>
-            <p className="ticket-card__headline">
-              다시 만난
-              <br />
-              당신의 취향
-            </p>
+            <p className="ticket-card__headline">다시 만난<br />당신의 취향</p>
           </div>
         </section>
-
         <span className="ticket-card__notch ticket-card__notch--top" aria-hidden="true" />
         <span className="ticket-card__notch ticket-card__notch--bottom" aria-hidden="true" />
-
         <section className="ticket-card__body">
           <h1 className="login-title">로그인</h1>
           <p className="login-subtitle">지나온 문화생활을 이어서 기록해요</p>
-
           <form className="login-form" onSubmit={handleSubmit} noValidate>
             <label className="field">
               <span className="field__label">닉네임</span>
@@ -80,7 +68,6 @@ function LoginPage() {
                 onChange={(e) => setNickname(e.target.value)}
               />
             </label>
-
             <label className="field">
               <span className="field__label">비밀번호</span>
               <span className="field__wrap">
@@ -115,11 +102,7 @@ function LoginPage() {
                 </button>
               </span>
             </label>
-
-            <p className="login-error" role="alert">
-              {error}
-            </p>
-
+            <p className="login-error" role="alert">{error}</p>
             <button type="submit" className="primary-button" disabled={submitting}>
               {submitting ? '로그인 중…' : '로그인'}
             </button>

@@ -1,11 +1,9 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Logo from '../../components/Logo.jsx'
+import { checkNickname as checkNicknameAPI, signup } from '../../api/auth.js'
 import './SignupPage.css'
 
-// 개발 단계에서는 환경 변수가 없으면 화면 동작만 확인하는 데모 모드입니다.
-// 백엔드가 준비되면 .env의 VITE_API_BASE_URL을 설정하고 API 경로를 맞춰 주세요.
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const NICKNAME_PATTERN = /^[가-힣A-Za-z]{2,12}$/
 const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/
 
@@ -21,10 +19,7 @@ function EyeIcon({ crossed = false }) {
 
 function SignupPage() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({
-    nickname: '',
-    password: '',
-  })
+  const [form, setForm] = useState({ nickname: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [nicknameStatus, setNicknameStatus] = useState('idle')
   const [nicknameMessage, setNicknameMessage] = useState('')
@@ -39,10 +34,7 @@ function SignupPage() {
       setNicknameMessage('')
     }
     setSubmitError('')
-    setForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
+    setForm((prev) => ({ ...prev, [field]: value }))
   }
 
   async function checkNickname() {
@@ -53,30 +45,18 @@ function SignupPage() {
       return
     }
 
-    if (!API_BASE) {
-      setNicknameStatus('demo')
-      setNicknameMessage('입력 형식 확인 완료 · 실제 중복 여부는 서버 연결 후 확인할 수 있어요.')
-      return
-    }
-
     const requestId = ++nicknameRequestId.current
     setNicknameStatus('checking')
     setNicknameMessage('중복 확인 중...')
     try {
-      // 예상 API 규격: GET /api/auth/check-nickname?nickname=... → { available: boolean }
-      const res = await fetch(`${API_BASE}/api/auth/check-nickname?nickname=${encodeURIComponent(nickname)}`, {
-        credentials: 'include',
-      })
-      if (!res.ok) throw new Error('중복 확인 요청에 실패했어요.')
-      const data = await res.json()
+      const available = await checkNicknameAPI(nickname)
       if (requestId !== nicknameRequestId.current) return
-      if (typeof data.available !== 'boolean') throw new Error('서버 응답 형식을 확인해 주세요.')
-      setNicknameStatus(data.available ? 'available' : 'taken')
-      setNicknameMessage(data.available ? '사용할 수 있는 닉네임이에요.' : '이미 사용 중인 닉네임이에요.')
+      setNicknameStatus(available ? 'available' : 'taken')
+      setNicknameMessage(available ? '사용할 수 있는 닉네임이에요.' : '이미 사용 중인 닉네임이에요.')
     } catch (err) {
       if (requestId !== nicknameRequestId.current) return
       setNicknameStatus('error')
-      setNicknameMessage(err.message || '중복 확인 중 문제가 발생했어요.')
+      setNicknameMessage(err.message || '중복 확인에 실패했어요.')
     }
   }
 
@@ -88,7 +68,7 @@ function SignupPage() {
       setSubmitError('닉네임은 한글 또는 영문 2~12자로 입력해 주세요.')
       return
     }
-    if (!['available', 'demo'].includes(nicknameStatus)) {
+    if (nicknameStatus !== 'available') {
       setSubmitError('닉네임 중복 확인을 먼저 진행해 주세요.')
       return
     }
@@ -97,31 +77,17 @@ function SignupPage() {
       return
     }
 
-    if (!API_BASE) {
-      // 데모 모드에서는 실제 계정을 생성하거나 비밀번호를 저장하지 않습니다.
-      navigate('/onboarding')
-      return
-    }
-
     setSubmitting(true)
     try {
-      // 예상 API 규격: POST /api/auth/signup (백엔드 구현 시 필드명 협의 필요)
-      const res = await fetch(`${API_BASE}/api/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          nickname: form.nickname.trim(),
-          password: form.password,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.message || '회원가입 요청에 실패했어요.')
-      }
-      navigate('/onboarding')
+      // Django가 계정을 생성한 후 세션까지 발급합니다.
+      await signup({ nickname: form.nickname.trim(), password: form.password })
+      navigate('/onboarding', { replace: true })
     } catch (err) {
       setSubmitError(err.message || '회원가입 중 문제가 발생했어요.')
+      // 중복 확인 이후 다른 사용자가 닉네임을 등록했을 수 있습니다.
+      if (/중복|사용 중인 닉네임/.test(err.message || '')) {
+        setNicknameStatus('taken')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -136,7 +102,6 @@ function SignupPage() {
           <Link to="/login" className="signup-header__login">로그인</Link>
         </div>
       </header>
-
       <main className="signup-ticket">
         <aside className="signup-ticket__stub">
           <span className="signup-ticket__circle signup-ticket__circle--top" aria-hidden="true" />
@@ -149,61 +114,57 @@ function SignupPage() {
         </aside>
         <span className="signup-ticket__notch signup-ticket__notch--top" aria-hidden="true" />
         <span className="signup-ticket__notch signup-ticket__notch--bottom" aria-hidden="true" />
-
         <section className="signup-ticket__body" aria-labelledby="signup-title">
-              <h1 id="signup-title" className="signup-title">회원가입</h1>
-              <p className="signup-subtitle">닉네임으로 로그인해요</p>
-              <form onSubmit={handleSubmit} noValidate className="signup-form">
-                <div className="signup-field">
-                  <label htmlFor="signup-nickname">닉네임</label>
-                  <div className="signup-field__row">
-                    <input
-                      id="signup-nickname"
-                      name="nickname"
-                      autoComplete="username"
-                      placeholder="2~12자 한글·영문"
-                      maxLength={12}
-                      value={form.nickname}
-                      onChange={(e) => updateField('nickname', e.target.value)}
-                      aria-describedby={nicknameMessage ? 'signup-nickname-message' : undefined}
-                    />
-                    <button className="signup-field__check" type="button" onClick={checkNickname} disabled={nicknameStatus === 'checking'}>
-                      {nicknameStatus === 'checking' ? '확인 중...' : '중복 확인'}
-                    </button>
-                  </div>
-                  {nicknameMessage && (
-                    <p id="signup-nickname-message" className={`signup-field__message ${['available', 'demo'].includes(nicknameStatus) ? 'is-positive' : 'is-negative'}`} role="status">
-                      {nicknameMessage}
-                    </p>
-                  )}
-                </div>
-
-                <div className="signup-field">
-                  <label htmlFor="signup-password">비밀번호</label>
-                  <div className="signup-field__password">
-                    <input
-                      id="signup-password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      placeholder="비밀번호"
-                      value={form.password}
-                      onChange={(e) => updateField('password', e.target.value)}
-                      aria-describedby="signup-password-hint"
-                    />
-                    <button type="button" aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'} aria-pressed={showPassword} onClick={() => setShowPassword((prev) => !prev)}>
-                      <EyeIcon crossed={showPassword} />
-                    </button>
-                  </div>
-                  <p id="signup-password-hint" className="signup-field__hint">영문·숫자를 포함해 8자 이상</p>
-                </div>
-
-                {submitError && <p className="signup-form__error" role="alert">{submitError}</p>}
-                <button className="signup-submit" type="submit" disabled={submitting}>
-                  {submitting ? '가입 요청 중...' : '가입하고 취향 설정하기'}
+          <h1 id="signup-title" className="signup-title">회원가입</h1>
+          <p className="signup-subtitle">닉네임으로 로그인해요</p>
+          <form onSubmit={handleSubmit} noValidate className="signup-form">
+            <div className="signup-field">
+              <label htmlFor="signup-nickname">닉네임</label>
+              <div className="signup-field__row">
+                <input
+                  id="signup-nickname"
+                  name="nickname"
+                  autoComplete="username"
+                  placeholder="2~12자 한글·영문"
+                  maxLength={12}
+                  value={form.nickname}
+                  onChange={(e) => updateField('nickname', e.target.value)}
+                  aria-describedby={nicknameMessage ? 'signup-nickname-message' : undefined}
+                />
+                <button className="signup-field__check" type="button" onClick={checkNickname} disabled={nicknameStatus === 'checking'}>
+                  {nicknameStatus === 'checking' ? '확인 중...' : '중복 확인'}
                 </button>
-                {!API_BASE && <p className="signup-form__demo">현재 화면은 프론트엔드 데모입니다. 계정 정보는 저장되지 않습니다.</p>}
-              </form>
+              </div>
+              {nicknameMessage && (
+                <p id="signup-nickname-message" className={`signup-field__message ${nicknameStatus === 'available' ? 'is-positive' : 'is-negative'}`} role="status">
+                  {nicknameMessage}
+                </p>
+              )}
+            </div>
+            <div className="signup-field">
+              <label htmlFor="signup-password">비밀번호</label>
+              <div className="signup-field__password">
+                <input
+                  id="signup-password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  placeholder="비밀번호"
+                  value={form.password}
+                  onChange={(e) => updateField('password', e.target.value)}
+                  aria-describedby="signup-password-hint"
+                />
+                <button type="button" aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'} aria-pressed={showPassword} onClick={() => setShowPassword((prev) => !prev)}>
+                  <EyeIcon crossed={showPassword} />
+                </button>
+              </div>
+              <p id="signup-password-hint" className="signup-field__hint">영문·숫자를 포함해 8자 이상</p>
+            </div>
+            {submitError && <p className="signup-form__error" role="alert">{submitError}</p>}
+            <button className="signup-submit" type="submit" disabled={submitting}>
+              {submitting ? '가입 요청 중...' : '가입하고 취향 설정하기'}
+            </button>
+          </form>
         </section>
       </main>
     </div>

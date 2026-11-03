@@ -1,0 +1,6 @@
+.mt-bookmarks { background:white; max-width:800px; margin:20px auto; padding:80px 20px; text-align:center; border-radius:30px; }
+.mt-bookmarks__symbol { color:#7061bf; background:#f0eafb; width:64px; height:64px; border-radius:50%; display:inline-flex; justify-content:center; align-items:center; font-size:35px; }
+.mt-bookmarks h1 { font-family:var(--font-serif,serif); font-size:34px; font-weight:400; }
+.mt-bookmarks p { font-size:14px; color:#707992; }
+.mt-bookmarks__notice { font-size:12px!important; margin-bottom:30px; }
+.mt-bookmarks a { display:inline-block; padding:13px 24px; border-radius:24px; color:white; background:#6d5bbc; font-weight:700; font-size:13px; }

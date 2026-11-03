@@ -1,0 +1,33 @@
+.mt-ticket-detail { display:grid; grid-template-columns:26% minmax(0,1fr) 19%; min-height:510px; background:white; border-radius:35px; overflow:hidden; }
+.mt-ticket-detail>.mt-artwork { padding:33px 36px; }
+.mt-ticket-detail__main { min-width:0; padding:44px 48px 36px; display:flex; flex-direction:column; }
+.mt-ticket-detail__main h2 { font-family:var(--font-serif,serif); font-size:clamp(27px,3vw,41px); font-weight:400; margin:21px 0 10px; overflow-wrap:anywhere; }
+.mt-ticket-detail__datetime { color:#676f89; margin:0; font-size:16px; }
+.mt-ticket-detail__data { margin:61px 0 0; display:grid; gap:17px; }
+.mt-ticket-detail__data-row { display:grid; grid-template-columns:68px minmax(0,1fr); gap:16px; font-size:14px; line-height:1.6; }
+.mt-ticket-detail__data dt { color:#6e748b; }
+.mt-ticket-detail__data dd { margin:0; overflow-wrap:anywhere; }
+.mt-ticket-detail__action { display:flex; justify-content:flex-end; margin-top:auto; padding-top:28px; }
+.mt-diary-action { background:#6d59b6; border:1px solid #6d59b6; color:white; border-radius:40px; padding:13px 23px; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.mt-diary-action.is-edit { background:white; border-color:#dcd8ec; color:#6554ac; }
+.mt-diary-action:hover { filter:brightness(.96); }
+.mt-ticket-detail__venue { border-left:2px dashed #d8cee9; background:#f1ecfc; padding:52px 26px; min-width:0; }
+.mt-ticket-detail__venue span { font-size:11px; font-weight:800; letter-spacing:.04em; color:#3c518a; }
+.mt-ticket-detail__venue p { font-size:14px; margin:21px 0; line-height:1.8; overflow-wrap:anywhere; }
+@media(max-width:900px){
+ .mt-ticket-detail { grid-template-columns:32% 1fr; }
+ .mt-ticket-detail__venue { grid-column:2; border-left:0; border-top:2px dashed #d8cee9; padding:18px 25px; }
+ .mt-ticket-detail__venue p { margin:5px 0; }
+ .mt-ticket-detail__main { padding:30px 32px; }
+ .mt-ticket-detail__data { margin-top:30px; }
+}
+@media(max-width:590px){
+ .mt-ticket-detail { grid-template-columns:1fr; border-radius:26px; }
+ .mt-ticket-detail>.mt-artwork { min-height:190px; padding:20px 25px; }
+ .mt-ticket-detail .mt-artwork__type { margin-top:44px; }
+ .mt-ticket-detail .mt-artwork__title { font-size:26px; }
+ .mt-ticket-detail__main { padding:26px 22px; }
+ .mt-ticket-detail__main h2 { margin-top:13px; }
+ .mt-ticket-detail__data { margin:25px 0; }
+ .mt-ticket-detail__venue { grid-column:1; padding:20px 22px; }
+}
