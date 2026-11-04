@@ -1,6 +1,335 @@
-.mt-bookmarks { background:white; max-width:800px; margin:20px auto; padding:80px 20px; text-align:center; border-radius:30px; }
-.mt-bookmarks__symbol { color:#7061bf; background:#f0eafb; width:64px; height:64px; border-radius:50%; display:inline-flex; justify-content:center; align-items:center; font-size:35px; }
-.mt-bookmarks h1 { font-family:var(--font-serif,serif); font-size:34px; font-weight:400; }
-.mt-bookmarks p { font-size:14px; color:#707992; }
-.mt-bookmarks__notice { font-size:12px!important; margin-bottom:30px; }
-.mt-bookmarks a { display:inline-block; padding:13px 24px; border-radius:24px; color:white; background:#6d5bbc; font-weight:700; font-size:13px; }
+.tt-bookmarks-page {
+  min-height: 100vh;
+}
+
+.tt-bookmarks-page__main {
+  width: min(1152px, 100% - 32px);
+  margin: 0 auto;
+  padding: 44px 0 64px;
+}
+
+.tt-bookmarks-page__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.tt-bookmarks-page__subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* ---------- 필터·정렬 ---------- */
+.tt-bookmarks-page__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 36px;
+}
+
+.tt-bookmarks-page__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tt-bookmarks-page__filter {
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid #d8dcee;
+  border-radius: 20px;
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.tt-bookmarks-page__filter.is-active {
+  border-color: var(--navy);
+  background: var(--navy);
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.tt-bookmarks-page__sort select {
+  height: 40px;
+  min-width: 140px;
+  padding: 0 40px 0 22px;
+  border: 1px solid #d8dcee;
+  border-radius: 20px;
+  background: var(--surface)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%235b6078' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 18px center;
+  font: inherit;
+  font-size: 14px;
+  color: var(--navy);
+  appearance: none;
+  cursor: pointer;
+}
+
+.tt-bookmarks-page__filter:focus-visible,
+.tt-bookmarks-page__sort select:focus-visible,
+.tt-bookmarks-page__action:focus-visible,
+.tt-bookmark-card__save:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
+
+.tt-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- 상태 문구 ---------- */
+.tt-bookmarks-page__count {
+  margin: 44px 0 16px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.tt-bookmarks-page__notice {
+  margin: 20px 0 0;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: #f6e7ec;
+  font-size: 14px;
+  color: var(--danger);
+}
+
+.tt-bookmarks-page__state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 44px 0 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.tt-bookmarks-page__state p {
+  margin: 0;
+}
+
+.tt-bookmarks-page__action {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 22px;
+  border: 1px solid #d8dcee;
+  border-radius: 22px;
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
+  cursor: pointer;
+}
+
+/* ---------- 카드 그리드 ---------- */
+.tt-bookmarks-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tt-bookmark-card {
+  overflow: hidden;
+  border-radius: 26px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.tt-bookmark-card__poster {
+  position: relative;
+  height: 170px;
+  overflow: hidden;
+}
+
+.tt-bookmark-card__poster::before {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+}
+
+.tt-bookmark-card__poster--musical {
+  background: var(--sky);
+}
+
+.tt-bookmark-card__poster--musical::before {
+  width: 140px;
+  height: 140px;
+  top: -30px;
+  right: -36px;
+  background: var(--sky-strong);
+}
+
+.tt-bookmark-card__poster--play {
+  background: #e3d9f6;
+}
+
+.tt-bookmark-card__poster--play::before {
+  width: 160px;
+  height: 160px;
+  bottom: -90px;
+  left: -50px;
+  background: #d3c4f0;
+}
+
+.tt-bookmark-card__poster--movie {
+  background: #ddd3f2;
+}
+
+.tt-bookmark-card__poster--movie::before {
+  width: 92px;
+  height: 92px;
+  top: 34px;
+  right: 24px;
+  border: 3px solid #bdb0e8;
+}
+
+.tt-bookmark-card__poster--exhibition {
+  background: #e4f0ea;
+}
+
+.tt-bookmark-card__poster--exhibition::before {
+  width: 60px;
+  height: 60px;
+  bottom: 30px;
+  left: 40px;
+  background: #cfe3d8;
+}
+
+.tt-bookmark-card__poster img {
+  position: relative; 
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tt-bookmark-card__poster-label {
+  position: absolute;
+  left: 20px;
+  bottom: 14px;
+  font-size: 10px;
+  color: var(--ink);
+}
+
+.tt-bookmark-card__tag {
+  position: absolute;
+  z-index: 1;
+  top: 16px;
+  left: 16px;
+  padding: 4px 13px;
+  border-radius: 14px;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.tt-bookmark-card__save {
+  position: absolute;
+  z-index: 1;
+  top: 12px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--purple);
+  cursor: pointer;
+}
+
+.tt-bookmark-card__save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tt-bookmark-card__body {
+  padding: 22px 20px 20px;
+}
+
+.tt-bookmark-card__title {
+  margin: 0 0 8px;
+  overflow: hidden;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis; 
+}
+
+.tt-bookmark-card__meta {
+  min-height: 20px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tt-status-chip {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 4px 13px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tt-status-chip--on,
+.tt-status-chip--upcoming {
+  background: #dceaf8;
+  color: var(--ink);
+}
+
+.tt-status-chip--soon {
+  background: #f6e7ec;
+  color: var(--danger);
+}
+
+.tt-status-chip--movie {
+  background: #f1ecfa;
+  color: var(--purple);
+}
+
+.tt-status-chip--ended,
+.tt-status-chip--unknown {
+  background: #eceef4;
+  color: #a3a8bc;
+}
+
+.tt-bookmark-card.is-ended .tt-bookmark-card__poster::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.tt-bookmark-card.is-ended .tt-bookmark-card__save {
+  color: #a3a8bc;
+}
+
+.tt-bookmark-card.is-ended .tt-bookmark-card__title,
+.tt-bookmark-card.is-ended .tt-bookmark-card__meta {
+  color: #a3a8bc;
+}
+
+@media (max-width: 720px) {
+  .tt-bookmarks-page__main {
+    padding-top: 28px;
+  }
+}
