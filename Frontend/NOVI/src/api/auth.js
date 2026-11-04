@@ -8,13 +8,11 @@ function readCookie(name) {
   return entry ? decodeURIComponent(entry.slice(name.length + 1)) : ''
 }
 
-// 명세서에는 CSRF 준비 API가 정의되지 않았습니다.
-// CSRF 쿠키가 이미 발급된 경우 헤더에 넣고, 백엔드가 추후 지정한 준비 API가 있을 때만 호출합니다.
-// 백엔드가 기본 CSRF 검사를 사용한다면 토큰을 발급하는 API나 설정을 반드시 협의해야 합니다.
+// CSRF 쿠키가 이미 발급된 경우 헤더에 넣고, 없으면 준비 API(GET /api/auth/csrf)로 쿠키를 먼저 받습니다.
 async function csrfHeader() {
   let token = readCookie('csrftoken')
-  const setupPath = import.meta.env.VITE_CSRF_API_PATH
-  if (!token && setupPath) {
+  const setupPath = import.meta.env.VITE_CSRF_API_PATH || `${API_BASE}/api/auth/csrf`
+  if (!token) {
     let response
     try {
       response = await fetch(setupPath, { credentials: 'include' })
@@ -81,10 +79,11 @@ export async function login({ nickname, password }) {
   return data
 }
 
-// 이 두 API는 2026-11-01 API.md에 없습니다. 지원한다고 가정해 요청하지 않습니다.
-export async function getCurrentUser() {
-  throw new Error('API 명세서에 현재 사용자 조회 API가 없습니다. 백엔드 담당자와 협의가 필요합니다.')
+// 응답 { nickname, date_joined } date_joined는 YYYY-MM-DD, 없으면 null
+export function getCurrentUser() {
+  return apiRequest('/api/auth/me')
 }
 export async function logout() {
-  throw new Error('API 명세서에 서버 로그아웃 API가 없습니다. 로그아웃 엔드포인트를 백엔드 담당자에게 요청해 주세요.')
+  await apiRequest('/api/auth/logout', { method: 'POST' })
+  clearUiLoginHint()
 }

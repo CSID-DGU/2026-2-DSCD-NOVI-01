@@ -40,8 +40,7 @@ export function getSavedOnboarding() {
   return apiRequest(PATH)
 }
 
-// API.md에는 온보딩 전체 교체 POST만 있으며 중요도만 수정하는 PATCH는 정의되지 않았습니다.
-// POST를 대신 사용하면 인생작이 전부 교체될 수 있으므로 의도적으로 저장하지 않습니다.
-export async function updateSurveyCriteria() {
-  throw new Error('중요도만 수정하는 API가 명세서에 없어요. 인생작 보존을 위해 저장하지 않았습니다. 백엔드 담당자에게 PATCH API를 요청해 주세요.')
+// 보낸 카테고리의 중요도만 바꿉니다. 인생작은 그대로입니다. 예: { movie: { genre: 70, actor: 60, director_venue: 50 } }
+export function updateSurveyCriteria(criteria) {
+  return apiRequest('/api/onboarding/criteria', { method: 'PATCH', body: { criteria } })
 }

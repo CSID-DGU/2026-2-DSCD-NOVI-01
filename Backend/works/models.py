@@ -72,6 +72,11 @@ class Work(models.Model):
     def __str__(self):
         return f'[{self.get_category_display()}] {self.title}'
 
+    @property
+    def item_id(self):
+        """작품 고유 번호. API는 영화만 Work로 주므로 TMDB 번호다."""
+        return self.source_id
+
 
 class Production(models.Model):
     """뮤지컬·연극·전시 작품. KOPIS는 같은 작품도 지역·시즌·극장마다 공연 id가 달라서, 제목이 같은 공연(Work)을 하나로 묶는다.
@@ -121,6 +126,11 @@ class Production(models.Model):
 
     def __str__(self):
         return f'[{self.code}] {self.title}'
+
+    @property
+    def item_id(self):
+        """작품 고유 번호 (M00001 / P00001 / E00001)."""
+        return self.code
 
 
 class ExcludedProduction(models.Model):

@@ -67,6 +67,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     is_active = models.BooleanField('활성', default=True)
     is_staff = models.BooleanField('관리자 화면 접근', default=False)
+    date_joined = models.DateTimeField('가입일', auto_now_add=True, null=True, help_text='이 칸이 생기기 전에 가입한 사용자는 비어 있다')
 
     objects = UserManager()
 
