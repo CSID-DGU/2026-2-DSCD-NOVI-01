@@ -6,8 +6,8 @@ import { MOCK_BOOKMARKS } from './mockBookmarks.js'
 import { getBookmarkStatus, toLocalDateString } from './bookmarkStatus.js'
 import './BookmarksPage.css'
 
-// 디자인 확인용 예시 데이터가 필요할 때만 true로 바꾸기
-const USE_MOCK = false
+// 백엔드 북마크 API가 생기면 false로 바꾸기
+const USE_MOCK = true
 
 const CATEGORY_LABEL = { movie: '영화', musical: '뮤지컬', play: '연극', exhibition: '전시' }
 
