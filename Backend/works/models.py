@@ -123,6 +123,28 @@ class Production(models.Model):
         return f'[{self.code}] {self.title}'
 
 
+class ExcludedProduction(models.Model):
+    """다루지 않기로 해서 지운 어린이 대상 작품 (2026-11-04 결정. EXCLUDED_GENRES 참고).
+
+    수집 API에는 이런 구분이 없고 장르는 수집한 뒤에 LLM이 붙이므로, 지운 작품을 여기 남겨서 다시 받지 않는다.
+    """
+
+    code = models.CharField('작품 번호', max_length=10, null=True, blank=True, help_text='지운 번호를 다시 쓰지 않기 위해 남긴다')
+    category = models.CharField('카테고리', max_length=10, choices=Work.Category.choices)
+    key = models.CharField('묶는 기준', max_length=300, help_text='Production.key와 같은 값. 같은 작품의 새 공연도 받지 않는다')
+    title = models.CharField('작품이름', max_length=300)
+    source_ids = ArrayField(models.CharField(max_length=80), default=list, blank=True,
+                            help_text='지운 공연·전시의 원본 ID 전부')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['category', 'key'], name='unique_excluded_per_key'),
+        ]
+
+    def __str__(self):
+        return f'[{self.code}] {self.title}'
+
+
 class GenreMood(models.Model):
     """장르 → 느낌. 장르마다 LLM에 한 번만 물어보고 영화·뮤지컬·연극·전시 모두에 똑같이 쓴다. (genres는 장르 1개짜리 목록)"""
 

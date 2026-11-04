@@ -4,9 +4,11 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from works.models import Work
-from works.sources import _normalize, fetch_kcisa_exhibitions, fetch_seoul_exhibitions, is_foreign_exhibition
+from works.sources import (
+    _normalize, exhibition_key, fetch_kcisa_exhibitions, fetch_seoul_exhibitions, is_foreign_exhibition,
+)
 
-from .group_performances import dropped_source_ids
+from .group_performances import dropped_source_ids, excluded_keys
 
 FIELD_LIMITS = {'title': 300, 'venue': 200, 'age_rating': 200, 'image_url': 500}
 
@@ -42,10 +44,11 @@ class Command(BaseCommand):
         self.stdout.write(f'제목·시작일이 같은 전시를 합쳐 {len(works)}건')
         works = [w for w in works if not is_foreign_exhibition(w['title'], w['plot'])]
         self.stdout.write(f'일본어·중국어판 전시를 빼고 {len(works)}건')
-        # 같은 작품의 더 최근 전시가 있어서 지운 전시는 다시 넣지 않는다
+        # 같은 작품의 더 최근 전시가 있어서 지운 전시, 어린이·체험 전시라서 지운 전시는 다시 넣지 않는다
         dropped = dropped_source_ids(Work.Category.EXHIBITION)
-        works = [w for w in works if w['source_id'] not in dropped]
-        self.stdout.write(f'이미 작품으로 합쳐 지운 전시를 빼고 {len(works)}건')
+        excluded = excluded_keys(Work.Category.EXHIBITION)
+        works = [w for w in works if w['source_id'] not in dropped and exhibition_key(w['title']) not in excluded]
+        self.stdout.write(f'이미 지운 전시를 빼고 {len(works)}건')
 
         saved = 0
         with transaction.atomic():

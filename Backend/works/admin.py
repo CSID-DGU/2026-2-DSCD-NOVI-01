@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import GenreMood, Production, Work
+from .models import ExcludedProduction, GenreMood, Production, Work
 
 
 @admin.register(Work)
@@ -14,6 +14,13 @@ class WorkAdmin(admin.ModelAdmin):
 @admin.register(Production)
 class ProductionAdmin(admin.ModelAdmin):
     list_display = ['code', 'title', 'category', 'genres', 'performance_count', 'date', 'end_date', 'popularity']
+    list_filter = ['category']
+    search_fields = ['code', 'title', 'key']
+
+
+@admin.register(ExcludedProduction)
+class ExcludedProductionAdmin(admin.ModelAdmin):
+    list_display = ['code', 'title', 'category']
     list_filter = ['category']
     search_fields = ['code', 'title', 'key']
 
