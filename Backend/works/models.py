@@ -72,6 +72,11 @@ class Work(models.Model):
     def __str__(self):
         return f'[{self.get_category_display()}] {self.title}'
 
+    @property
+    def item_id(self):
+        """작품 고유 번호. API는 영화만 Work로 주므로 TMDB 번호다."""
+        return self.source_id
+
 
 class Production(models.Model):
     """뮤지컬·연극·전시 작품. KOPIS는 같은 작품도 지역·시즌·극장마다 공연 id가 달라서, 제목이 같은 공연(Work)을 하나로 묶는다.
@@ -117,6 +122,33 @@ class Production(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=['category', 'key'], name='unique_production_per_key'),
+        ]
+
+    def __str__(self):
+        return f'[{self.code}] {self.title}'
+
+    @property
+    def item_id(self):
+        """작품 고유 번호 (M00001 / P00001 / E00001)."""
+        return self.code
+
+
+class ExcludedProduction(models.Model):
+    """다루지 않기로 해서 지운 어린이 대상 작품 (2026-11-04 결정. EXCLUDED_GENRES 참고).
+
+    수집 API에는 이런 구분이 없고 장르는 수집한 뒤에 LLM이 붙이므로, 지운 작품을 여기 남겨서 다시 받지 않는다.
+    """
+
+    code = models.CharField('작품 번호', max_length=10, null=True, blank=True, help_text='지운 번호를 다시 쓰지 않기 위해 남긴다')
+    category = models.CharField('카테고리', max_length=10, choices=Work.Category.choices)
+    key = models.CharField('묶는 기준', max_length=300, help_text='Production.key와 같은 값. 같은 작품의 새 공연도 받지 않는다')
+    title = models.CharField('작품이름', max_length=300)
+    source_ids = ArrayField(models.CharField(max_length=80), default=list, blank=True,
+                            help_text='지운 공연·전시의 원본 ID 전부')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['category', 'key'], name='unique_excluded_per_key'),
         ]
 
     def __str__(self):

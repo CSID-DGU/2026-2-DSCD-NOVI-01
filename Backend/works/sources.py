@@ -129,8 +129,9 @@ def _kopis(path, params=None):
     return ET.fromstring(resp.content)
 
 
-def list_performance_ids(category, start, end):
-    """start~end 기간에 공연한 뮤지컬 또는 연극 id (콘서트·갈라 등 제외). 목록 조회는 긴 기간을 한 번에 못 받아서 31일씩 끊는다."""
+def list_performance_ids(category, start, end, excluded_keys=()):
+    """start~end 기간에 공연한 뮤지컬 또는 연극 id (콘서트·갈라 등과 excluded_keys 작품 제외).
+    목록 조회는 긴 기간을 한 번에 못 받아서 31일씩 끊는다."""
     cur = start
     while cur <= end:
         chunk_end = min(cur + timedelta(days=30), end)
@@ -145,7 +146,8 @@ def list_performance_ids(category, start, end):
             })
             rows = root.findall('db')
             for db in rows:
-                if not is_not_musical(db.findtext('prfnm') or ''):
+                title = db.findtext('prfnm') or ''
+                if not is_not_musical(title) and musical_key(title) not in excluded_keys:
                     yield db.findtext('mt20id')
             if len(rows) < KOPIS_ROWS:
                 break

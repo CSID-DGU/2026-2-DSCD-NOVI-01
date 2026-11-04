@@ -6,6 +6,8 @@ from django.db import connection
 from works.models import Production, Work
 from works.sources import all_movie_popularity, performance_boxoffice
 
+from .group_performances import excluded_source_ids
+
 BATCH_SIZE = 5000
 BOXOFFICE_MAX_DAYS = 31  # KOPIS 예매상황판이 한 번에 조회해 주는 최대 기간
 
@@ -54,7 +56,9 @@ class Command(BaseCommand):
         end = date.today() - timedelta(days=1)  # 오늘 예매는 아직 다 집계되지 않았다
         start = end - timedelta(days=BOXOFFICE_MAX_DAYS - 1)
         self.stdout.write(f'KOPIS {label} 예매 순위 받는 중: {start} ~ {end}')
-        ranking = performance_boxoffice(category, start, end)
+        # 다루지 않기로 해서 지운 작품은 빼고, 빠진 자리만큼 뒤 순위를 당긴다
+        excluded = excluded_source_ids(category)
+        ranking = [mt20id for mt20id in performance_boxoffice(category, start, end) if mt20id not in excluded]
 
         movie_scores = list(
             Work.objects.filter(category=Work.Category.MOVIE, popularity__isnull=False)
