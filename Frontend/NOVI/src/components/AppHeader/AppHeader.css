@@ -23,8 +23,45 @@
 }
 .tt-app-header__link:hover, .tt-app-header__link.is-active { background: #e6e1f7; color: #29294f; }
 .tt-app-header__link:focus-visible { outline: 3px solid #7764cd; outline-offset: 2px; }
+
+/* 기존 링크들과 어울리는 작은 로그아웃 버튼 */
+.tt-app-header__logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 9px 15px;
+  border: 1px solid #d9d3ee;
+  border-radius: 24px;
+  color: #5f6682;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .15s, background .15s, border-color .15s;
+}
+.tt-app-header__logout:hover:not(:disabled) {
+  color: #39315c;
+  background: #f3f0fc;
+  border-color: #bfb4e6;
+}
+.tt-app-header__logout:focus-visible {
+  outline: 3px solid #7764cd;
+  outline-offset: 2px;
+}
+.tt-app-header__logout:disabled { opacity: .65; cursor: wait; }
+.tt-app-header__error {
+  max-width: 1152px;
+  margin: 3px auto 0;
+  color: #b63d5e;
+  font-size: 12px;
+}
 @media(max-width: 600px) {
   .tt-app-header__inner { align-items: flex-start; flex-direction: column; }
-  .tt-app-header__nav { width: 100%; justify-content: space-between; gap: 4px; }
+  .tt-app-header__nav { width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 4px; }
   .tt-app-header__link { font-size: 12px; padding: 8px 12px; }
+  .tt-app-header__logout { margin-left: auto; font-size: 12px; padding: 7px 12px; }
 }

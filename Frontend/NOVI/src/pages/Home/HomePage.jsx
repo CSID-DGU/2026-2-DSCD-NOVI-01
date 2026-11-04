@@ -37,7 +37,7 @@ export default function HomePage() {
           <FeatureCard
             number="01" label="추천" title="Today's Picks"
             description="당신의 취향에서 시작되는 추천"
-            tags={['뮤지컬', '콘서트', '전시', '영화']}
+            tags={['뮤지컬', '연극', '전시', '영화']}
             to="/picks" variant="blue"
           />
           <FeatureCard

@@ -1,10 +1,10 @@
-// 헤더 로고
+// 헤더 로고: 사용하는 화면에 따라 이동 경로를 지정할 수 있습니다.
 import { Link } from 'react-router-dom'
 import './Logo.css'
 
-function Logo() {
+function Logo({ to = '/' }) {
   return (
-    <Link to="/" className="logo" aria-label="TicketTaka 홈">
+    <Link to={to} className="logo" aria-label="TicketTaka 홈">
       <span className="logo__icon" aria-hidden="true">
         <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
           <rect x="1" y="1" width="16" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.6" />

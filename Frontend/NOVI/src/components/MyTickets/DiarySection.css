@@ -1,0 +1,4 @@
+.mt-diary-section__body { white-space:pre-wrap; font-size:14px; line-height:2; margin:23px 0 13px; overflow-wrap:anywhere; }
+.mt-diary-section__body.is-preview { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.mt-diary-section__actions { display:flex; gap:20px; align-items:center; }
+.mt-diary-section__actions button, .mt-diary-section__actions a { font-size:13px; text-decoration:underline; color:#6553aa; background:transparent; border:0; font-weight:700; cursor:pointer; padding:0; }

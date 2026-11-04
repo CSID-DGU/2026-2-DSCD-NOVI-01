@@ -1,0 +1,29 @@
+.mt-artwork { min-width:0; overflow:hidden; position:relative; background:#cfe2f8; color:#262a4a; isolation:isolate; }
+.mt-artwork--musical { background:#cfe1f8; }
+.mt-artwork--play { background:#e3d9f8; }
+.mt-artwork--movie { background:#e0d4f5; }
+.mt-artwork--exhibition { background:#d1e8e9; }
+.mt-artwork__circle { position:absolute; display:block; border-radius:50%; z-index:-1; pointer-events:none; }
+.mt-artwork__circle--top { width:210px; height:210px; top:-70px; left:-52px; background:#e7e3f8; }
+.mt-artwork__circle--bottom { width:200px; height:200px; right:-89px; bottom:-35px; background:rgba(134,181,227,.36); }
+.mt-artwork--play .mt-artwork__circle--bottom, .mt-artwork--movie .mt-artwork__circle--bottom { background:rgba(167,135,213,.24); }
+.mt-artwork--exhibition .mt-artwork__circle--bottom { background:rgba(78,168,188,.22); }
+.mt-artwork__type { font-size:11px; font-weight:700; letter-spacing:.03em; color:#3d5289; position:relative; margin-top:145px; }
+.mt-artwork__title { font-family:var(--font-serif,serif); font-size:34px; line-height:1.42; overflow-wrap:anywhere; margin-top:13px; position:relative; }
+.mt-artwork--small .mt-artwork__circle--top { width:126px; height:126px; top:-30px; left:-36px; }
+.mt-artwork--small .mt-artwork__circle--bottom { width:112px; height:112px; right:-44px; bottom:-24px; }
+
+/* 포스터가 있는 작품은 티켓 아트워크의 배경을 실제 작품 이미지로 표시합니다. */
+.mt-artwork--has-poster { background:#2c304c; color:#fff; }
+.mt-artwork__poster {
+  position:absolute; inset:0; z-index:0; width:100%; height:100%;
+  display:block; object-fit:cover; object-position:center;
+}
+.mt-artwork--has-poster::after {
+  content:''; position:absolute; inset:0; z-index:1;
+  background:linear-gradient(to bottom,rgba(14,18,38,.06) 25%,rgba(14,18,38,.82) 100%);
+  pointer-events:none;
+}
+.mt-artwork--has-poster .mt-artwork__circle { display:none; }
+.mt-artwork--has-poster .mt-artwork__type,
+.mt-artwork--has-poster .mt-artwork__title { z-index:2; color:#fff; text-shadow:0 1px 9px rgba(0,0,0,.32); }

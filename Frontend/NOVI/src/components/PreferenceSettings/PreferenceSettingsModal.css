@@ -1,0 +1,26 @@
+.mt-modal-backdrop { position:fixed; inset:0; background:rgba(29,31,64,.46); z-index:1000; display:flex; justify-content:center; align-items:center; padding:16px; overflow-y:auto; }
+.mt-preference-dialog { background:#fff; width:min(680px,100%); max-height:92vh; overflow:auto; padding:30px 34px; border-radius:27px; box-shadow:0 25px 75px rgba(20,17,55,.2); }
+.mt-preference-dialog__header { display:flex; justify-content:space-between; gap:15px; align-items:start; }
+.mt-preference-dialog__eyebrow { color:#7665bd; font-size:12px; font-weight:700; letter-spacing:.1em; }
+.mt-preference-dialog h2 { font-family:var(--font-serif,serif); font-size:29px; font-weight:400; margin:4px 0; }
+.mt-modal-close { border:1px solid #e1e5f3; background:white; border-radius:50%; width:38px; height:38px; font-size:28px; line-height:1; cursor:pointer; }
+.mt-preference-dialog__hint { font-size:13px; line-height:1.8; color:#737890; margin:10px 0 23px; }
+.mt-preference-tabs { display:flex; gap:10px; margin-bottom:24px; flex-wrap:wrap; }
+.mt-preference-tabs button { border:1px solid #d8dcef; color:#3c4166; background:white; padding:10px 17px; border-radius:24px; cursor:pointer; }
+.mt-preference-tabs button.is-selected { border-color:#292e50; background:#292e50; color:white; }
+.mt-preference-fields { border-radius:20px; padding:25px 30px; background:#f8f8fd; }
+.mt-preference-field+.mt-preference-field { margin-top:23px; }
+.mt-preference-field__title { display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:700; margin-bottom:11px; }
+.mt-preference-field__value { font-size:12px; color:#7160ba; }
+.mt-preference-field input[type=range] { appearance:none; width:100%; height:7px; background:linear-gradient(90deg,#7364be var(--percent),#dfe2f0 var(--percent)); border-radius:8px; cursor:pointer; display:block; }
+.mt-preference-field input[type=range]::-webkit-slider-thumb { appearance:none; background:#fff; width:21px; height:21px; border:5px solid #7364be; border-radius:50%; box-shadow:0 2px 8px rgba(76,62,142,.2); }
+.mt-preference-field input[type=range]::-moz-range-thumb { background:white; width:12px; height:12px; border:5px solid #7364be; border-radius:50%; }
+.mt-preference-field__ticks { display:flex; justify-content:space-between; color:#8890a7; font-size:11px; margin-top:12px; }
+.mt-preference-dialog__footer { margin-top:24px; }
+.mt-preference-buttons { display:flex; justify-content:flex-end; gap:10px; }
+.mt-preference-error { color:#bb4261; font-size:13px; }
+.mt-preference-success { color:#326e75; font-size:13px; }
+.mt-btn { border:0; padding:12px 24px; cursor:pointer; font-weight:700; border-radius:30px; }
+.mt-btn--outline { color:#554886; background:#fff; border:1px solid #d9d9ee; }
+.mt-btn--purple { background:#6d5bbc; color:#fff; }
+@media(max-width:600px){.mt-preference-dialog{padding:22px 18px}.mt-preference-fields{padding:20px}.mt-preference-tabs{gap:5px}.mt-preference-tabs button{padding:9px 12px;font-size:12px}}
