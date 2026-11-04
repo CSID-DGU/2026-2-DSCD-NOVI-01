@@ -24,11 +24,13 @@ function App() {
         <Route element={<RequireAuth />}>
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/home" element={<HomePage />} />
-          <Route path="/picks" element={<PlaceholderPage title="Today's Picks" description="맞춤 추천 페이지는 다음 단계에서 구현합니다." />} />
+          <Route path="/picks" element={<TodaysPicksPage />} />
 
           <Route path="/tickets" element={<MyTicketsPage />} />
           <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
+          <Route path="/diary/write" element={<DiaryWritePage />} />
+
 
           {/* 실제 PostgreSQL API POST /api/tickets/를 호출하는 페이지입니다. */}
           <Route path="/ticket" element={<TicketResultPage manual />} />
