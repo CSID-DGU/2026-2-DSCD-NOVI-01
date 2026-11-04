@@ -60,7 +60,7 @@ export default function HomePage() {
           <div className="tt-home-upload__options">
             <UploadOption type="camera" title="티켓 사진"
               description={'카메라로 티켓을 찍으면\n정보를 자동으로 읽어요'}
-              buttonText="촬영하기" emphasized
+              buttonText="촬영하기" 
               onClick={() => cameraRef.current?.click()}
             />
             <UploadOption type="image" title="이미지 첨부"

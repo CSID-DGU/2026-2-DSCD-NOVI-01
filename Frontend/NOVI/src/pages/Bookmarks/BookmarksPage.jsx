@@ -1,12 +1,226 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppHeader from '../../components/AppHeader/AppHeader.jsx'
-import '../MyTickets/MyTicketsPage.css'
+import { getBookmarks, removeBookmark } from '../../api/bookmarks.js'
+import { MOCK_BOOKMARKS } from './mockBookmarks.js'
+import { getBookmarkStatus, toLocalDateString } from './bookmarkStatus.js'
 import './BookmarksPage.css'
 
-// 북마크 DB·저장/조회 API 미구현 상태의 명시적 임시 화면
+// 백엔드 북마크 API가 생기면 false로 바꾸기
+const USE_MOCK = true
+
+const CATEGORY_LABEL = { movie: '영화', musical: '뮤지컬', play: '연극', exhibition: '전시' }
+
+const FILTERS = [
+  { key: 'all', label: '전체' },
+  { key: 'musical', label: '뮤지컬' },
+  { key: 'play', label: '연극' },
+  { key: 'exhibition', label: '전시' },
+  { key: 'movie', label: '영화' },
+]
+
+const SORTS = [
+  { key: 'saved', label: '저장한 순' },
+  { key: 'ending', label: '종료 임박순' },
+]
+
+async function loadBookmarks() {
+  if (USE_MOCK) return { items: MOCK_BOOKMARKS }
+  return getBookmarks()
+}
+
+async function deleteBookmark(itemId) {
+  if (USE_MOCK) return null 
+  return removeBookmark(itemId)
+}
+
+const formatDate = (value) => (value ? value.replaceAll('-', '.') : '')
+
+function periodText(work) {
+  if (work.category === 'movie') return work.date ? `${work.date.slice(0, 4)} 개봉` : ''
+  if (work.date && work.end_date) return `${formatDate(work.date)} ~ ${formatDate(work.end_date)}`
+  if (work.end_date) return `~ ${formatDate(work.end_date)}`
+  return formatDate(work.date)
+}
+
+function subText(work) {
+  if (work.category === 'movie') return work.directors?.join(', ') ?? ''
+  return work.venue ?? ''
+}
+
+function sortBookmarks(items, sortKey, today) {
+  const copy = [...items]
+  if (sortKey === 'ending') {
+    const rank = (w) => (!w.end_date ? 2 : w.end_date < today ? 1 : 0)
+    return copy.sort((a, b) => rank(a) - rank(b) || (a.end_date ?? '').localeCompare(b.end_date ?? ''))
+  }
+  return copy.sort((a, b) => (b.saved_at ?? '').localeCompare(a.saved_at ?? ''))
+}
+
 export default function BookmarksPage() {
-  return <div className="mt-page"><AppHeader/><main className="mt-container">
-    <Link to="/tickets" className="mt-back-link">← My Tickets로 돌아가기</Link>
-    <div className="mt-bookmarks"><span className="mt-bookmarks__symbol" aria-hidden="true">♡</span><h1>내 북마크</h1><p>마음에 드는 작품을 한곳에서 모아볼 수 있도록 준비 중이에요.</p><p className="mt-bookmarks__notice">현재 북마크 등록·조회 기능 및 사용자 DB 연동은 아직 구현되지 않았습니다.</p><Link to="/tickets">티켓 목록으로 돌아가기</Link></div>
-  </main></div>
+  const [items, setItems] = useState([])
+  const [status, setStatus] = useState('loading') 
+  const [loadError, setLoadError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [filter, setFilter] = useState('all')
+  const [sort, setSort] = useState('saved')
+  const [removingIds, setRemovingIds] = useState(() => new Set())
+
+  const load = useCallback(async () => {
+    setStatus('loading')
+    setLoadError('')
+    try {
+      const data = await loadBookmarks()
+      setItems(Array.isArray(data?.items) ? data.items : [])
+      setStatus('ready')
+    } catch (err) {
+      setLoadError(err.message)
+      setStatus('error')
+    }
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const today = toLocalDateString()
+
+  const visible = useMemo(() => {
+    const filtered = filter === 'all' ? items : items.filter((w) => w.category === filter)
+    return sortBookmarks(filtered, sort, today)
+  }, [items, filter, sort, today])
+
+  async function handleRemove(work) {
+    if (removingIds.has(work.item_id)) return
+    setActionError('')
+    setRemovingIds((prev) => new Set(prev).add(work.item_id))
+    setItems((prev) => prev.filter((w) => w.item_id !== work.item_id))
+    try {
+      await deleteBookmark(work.item_id)
+    } catch (err) {
+      setItems((prev) => (prev.some((w) => w.item_id === work.item_id) ? prev : [...prev, work]))
+      setActionError(`「${work.title}」 저장 해제에 실패했어요. ${err.message}`)
+    } finally {
+      setRemovingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(work.item_id)
+        return next
+      })
+    }
+  }
+
+  return (
+    <div className="tt-bookmarks-page">
+      <AppHeader />
+
+      <main className="tt-bookmarks-page__main">
+        <h1 className="tt-bookmarks-page__title">저장한 작품</h1>
+        <p className="tt-bookmarks-page__subtitle">
+          보고 싶은 작품을 모아 두었어요. 공연·전시는 기간이 끝나기 전에 확인하세요.
+        </p>
+
+        <div className="tt-bookmarks-page__toolbar">
+          <div className="tt-bookmarks-page__filters" role="group" aria-label="분야 필터">
+            {FILTERS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className={`tt-bookmarks-page__filter${filter === f.key ? ' is-active' : ''}`}
+                aria-pressed={filter === f.key}
+                onClick={() => setFilter(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <label className="tt-bookmarks-page__sort">
+            <span className="tt-visually-hidden">정렬</span>
+            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+              {SORTS.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {actionError && (
+          <p className="tt-bookmarks-page__notice" role="alert">
+            {actionError}
+          </p>
+        )}
+
+        {status === 'loading' && <p className="tt-bookmarks-page__state">불러오는 중…</p>}
+
+        {status === 'error' && (
+          <div className="tt-bookmarks-page__state" role="alert">
+            <p>{loadError}</p>
+            <button type="button" className="tt-bookmarks-page__action" onClick={load}>
+              다시 불러오기
+            </button>
+          </div>
+        )}
+
+        {status === 'ready' && items.length === 0 && (
+          <div className="tt-bookmarks-page__state">
+            <p>아직 저장한 작품이 없어요.</p>
+            <Link to="/picks" className="tt-bookmarks-page__action">
+              추천 작품 보러 가기
+            </Link>
+          </div>
+        )}
+
+        {status === 'ready' && items.length > 0 && (
+          <>
+            <p className="tt-bookmarks-page__count">{visible.length}개</p>
+
+            {visible.length === 0 ? (
+              <p className="tt-bookmarks-page__state">이 분야에 저장한 작품이 없어요.</p>
+            ) : (
+              <ul className="tt-bookmarks-page__grid">
+                {visible.map((work) => {
+                  const st = getBookmarkStatus(work, today)
+                  const ended = st.key === 'ended'
+                  return (
+                    <li key={work.item_id} className={`tt-bookmark-card${ended ? ' is-ended' : ''}`}>
+                      <div className={`tt-bookmark-card__poster tt-bookmark-card__poster--${work.category}`}>
+                        {work.image_url ? (
+                          <img src={work.image_url} alt="" loading="lazy" />
+                        ) : (
+                          <span className="tt-bookmark-card__poster-label">포스터 이미지 넣기</span>
+                        )}
+                        <span className="tt-bookmark-card__tag">{CATEGORY_LABEL[work.category]}</span>
+                        <button
+                          type="button"
+                          className="tt-bookmark-card__save"
+                          aria-label={`「${work.title}」 저장 해제`}
+                          aria-pressed="true"
+                          disabled={removingIds.has(work.item_id)}
+                          onClick={() => handleRemove(work)}
+                        >
+                          <svg width="14" height="18" viewBox="0 0 14 18" aria-hidden="true">
+                            <path d="M1 1h12v16l-6-4-6 4V1Z" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      <div className="tt-bookmark-card__body">
+                        {/* 작품 상세 페이지 경로가 정해지면 제목을 Link로 바꾸기 */}
+                        <h2 className="tt-bookmark-card__title">{work.title}</h2>
+                        <p className="tt-bookmark-card__meta">{periodText(work)}</p>
+                        <p className="tt-bookmark-card__meta">{subText(work)}</p>
+                        <span className={`tt-status-chip tt-status-chip--${st.key}`}>{st.label}</span>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </>
+        )}
+      </main>
+    </div>
+  )
 }
