@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.postgres',
     'works',
     'users',
+    'recommend',
 ]
 
 AUTH_USER_MODEL = 'users.User'

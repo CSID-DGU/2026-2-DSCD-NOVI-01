@@ -1,0 +1,5 @@
+# 공식 VQ-Rec 코드는 라이선스가 없어 저장소에 넣지 않는다. Backend 폴더에서 받는다:
+#   git clone https://github.com/RUCAIBox/VQ-Rec.git recommend/third_party/VQ-Rec
+#   git -C recommend/third_party/VQ-Rec checkout 298184509f206df44bb1809895cbe5a5e4a7d7be
+# 패키지 설치는 requirements_recommend.txt 맨 위 설명을 따른다
+third_party/
