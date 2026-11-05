@@ -6,6 +6,7 @@ from works.models import Work
 from works.sources import NOT_MUSICAL_REGEX, fetch_performance, list_performance_ids
 
 from ._collect import save_works
+from .group_performances import excluded_keys
 
 
 class Command(BaseCommand):
@@ -35,5 +36,5 @@ class Command(BaseCommand):
             if removed:
                 self.stdout.write(f'이미 저장된 {label} 중 콘서트·갈라 등 {removed}개를 지웠습니다.')
             self.stdout.write(f'KOPIS {label} 목록 받는 중: {start} ~ {end}')
-            ids = list(list_performance_ids(cat, start, end))
+            ids = list(list_performance_ids(cat, start, end, excluded_keys(cat)))
             save_works(self, cat, ids, fetch_performance, refresh, workers, limit)

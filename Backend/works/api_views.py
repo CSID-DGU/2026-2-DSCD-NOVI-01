@@ -46,7 +46,10 @@ def work_list(request):
         "image_url", "popularity", "date", "end_date"
     ]
 
-    items = list(queryset.values(*fields)[:limit])
+    id_field = "source_id" if model is Work else "code"
+    items = list(queryset.values(*fields, id_field)[:limit])
+    for item in items:
+        item["item_id"] = item.pop(id_field)
 
     return JsonResponse({
         "category": category,

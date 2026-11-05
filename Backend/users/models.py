@@ -67,6 +67,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     is_active = models.BooleanField('활성', default=True)
     is_staff = models.BooleanField('관리자 화면 접근', default=False)
+    date_joined = models.DateTimeField('가입일', auto_now_add=True, null=True, help_text='이 칸이 생기기 전에 가입한 사용자는 비어 있다')
 
     objects = UserManager()
 
@@ -176,6 +177,48 @@ class UserWork(models.Model):
             models.CheckConstraint(
                 condition=models.Q(director_venue_pref__in=[1, 0, -1]), name='work_director_venue_pref_values',
             ),
+        ]
+
+    def __str__(self):
+        return f'{self.user} · [{self.get_category_display()}] {self.title}'
+
+
+class Recommendation(models.Model):
+    """사용자가 추천받은 작품. 북마크할 수 있는 작품인지 여기서 확인한다.
+
+    TODO: 추천 모델 코드를 받으면 채우는 방식을 정한다.
+    추천이 바뀌어도 지우지 않고 쌓는다. 예전 추천작의 북마크가 남아 있어야 하기 때문이다.
+    작품은 UserWork처럼 FK 없이 카테고리 + 작품 번호(item_id)로 가리킨다.
+    """
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, models.CASCADE, related_name='recommendations',
+                             verbose_name='사용자')
+    category = models.CharField('카테고리', max_length=10, choices=Work.Category.choices)
+    item_id = models.CharField('작품 번호', max_length=20)
+    title = models.CharField('작품이름', max_length=300, help_text='추천할 때의 제목. 작품이 지워져도 남는다')
+    rank = models.PositiveSmallIntegerField('카테고리 안 순위')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'category', 'item_id'], name='unique_user_recommendation'),
+        ]
+
+    def __str__(self):
+        return f'{self.user} · [{self.get_category_display()}] {self.title}'
+
+
+class Bookmark(models.Model):
+    """추천받은 작품 중 사용자가 저장해 둔 것. 취향 점수에는 쓰지 않는다."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, models.CASCADE, related_name='bookmarks', verbose_name='사용자')
+    category = models.CharField('카테고리', max_length=10, choices=Work.Category.choices)
+    item_id = models.CharField('작품 번호', max_length=20)
+    title = models.CharField('작품이름', max_length=300, help_text='저장할 때의 제목. 작품이 지워져도 남는다')
+    saved_at = models.DateTimeField('저장 시각', auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'category', 'item_id'], name='unique_user_bookmark'),
         ]
 
     def __str__(self):

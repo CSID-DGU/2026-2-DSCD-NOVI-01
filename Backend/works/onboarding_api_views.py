@@ -20,6 +20,7 @@ def serialize_work(work, *, include_plot=False):
     data = {
         "id": f"{category}:{work.pk}",  # Work와 Production의 숫자 ID 중복 방지
         "record_id": work.pk,
+        "item_id": work.item_id,
         "category": category,
         "title": work.title,
         "year": work.date.year if work.date else None,
@@ -63,8 +64,7 @@ def search_onboarding_works(request):
     candidates = []
     for category, model in CATEGORY_MODELS.items():
         fields = ["id", "category", "title", "date", "genres", "moods", "actors", "venue", "image_url", "popularity"]
-        if category == "movie":
-            fields.append("directors")
+        fields += ["source_id", "directors"] if category == "movie" else ["code"]
 
         queryset = (
             model.objects.filter(category=category, title__icontains=query)

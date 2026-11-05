@@ -2,9 +2,11 @@ from collections import defaultdict
 from datetime import date
 
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
-from works.models import Production, Work
+from works.models import ExcludedProduction, Production, Work
 from works.sources import clean_text, search_title
+from works.tagging import EXCLUDED_GENRES
 
 from .tag_genres import _key, _representative
 
@@ -23,7 +25,8 @@ def _latest(works):
 def _assign_codes(category, productions):
     """번호가 없는 작품에 다음 번호를 붙인다. 처음 시작한 작품부터. 지워진 작품의 번호는 다시 쓰지 않는다."""
     prefix = Production.CODE_PREFIXES[category]
-    codes = Production.objects.filter(category=category).exclude(code=None).values_list('code', flat=True)
+    codes = [code for model in (Production, ExcludedProduction)
+             for code in model.objects.filter(category=category).exclude(code=None).values_list('code', flat=True)]
     last = max((int(code[len(prefix):]) for code in codes), default=0)
     for production in sorted((p for p in productions if not p.code), key=lambda p: (p.date or date.max, p.key)):
         last += 1
@@ -58,16 +61,62 @@ def _summary(works, latest, production):
     }
 
 
+def excluded_source_ids(category):
+    """다루지 않기로 해서 지운 작품의 원본 ID."""
+    return {sid for ids in ExcludedProduction.objects.filter(category=category).values_list('source_ids', flat=True)
+            for sid in ids}
+
+
+def excluded_keys(category):
+    """다루지 않기로 해서 지운 작품의 묶는 기준. 같은 작품의 새 공연은 원본 ID가 달라서 이 값으로 거른다."""
+    return set(ExcludedProduction.objects.filter(category=category).values_list('key', flat=True))
+
+
 def dropped_source_ids(category):
-    """작품으로 합쳐지면서 지운 공연·전시의 원본 ID. 수집할 때 다시 받지 않는다."""
+    """작품으로 합쳐지면서 지운 공연·전시와 다루지 않기로 해서 지운 작품의 원본 ID. 수집할 때 다시 받지 않는다."""
     merged = {sid for ids in Production.objects.filter(category=category).values_list('source_ids', flat=True)
               for sid in ids}
-    return merged - set(Work.objects.filter(category=category).values_list('source_id', flat=True))
+    existing = set(Work.objects.filter(category=category).values_list('source_id', flat=True))
+    return (merged - existing) | excluded_source_ids(category)
+
+
+def _remove_excluded(category):
+    """제외 장르 하나만 붙은 작품을 공연까지 지우고 ExcludedProduction에 남긴다. 지운 작품 수를 돌려준다.
+    다른 장르가 같이 붙은 작품은 남긴다."""
+    genre = EXCLUDED_GENRES[category]
+    productions = Production.objects.filter(category=category)
+    works = list(Work.objects.filter(category=category).only('id', 'category', 'source_id', 'title', 'genres'))
+    keys = {_key(w) for w in works if w.genres == [genre]}
+    keys |= set(productions.filter(genres=[genre]).values_list('key', flat=True))
+
+    performances = defaultdict(list)
+    for work in works:
+        if _key(work) in keys:
+            performances[_key(work)].append(work)
+    removed = {p.key: p for p in productions.filter(key__in=keys)}
+    excluded = []
+    for key in keys:
+        production, group = removed.get(key), performances[key]
+        excluded.append(ExcludedProduction(
+            category=category, key=key,
+            code=production.code if production else None,
+            title=production.title if production else group[0].title,
+            source_ids=sorted(set(production.source_ids if production else []) | {w.source_id for w in group}),
+        ))
+
+    drop = [w.id for group in performances.values() for w in group]
+    with transaction.atomic():
+        ExcludedProduction.objects.bulk_create(excluded, batch_size=BATCH_SIZE, ignore_conflicts=True)
+        for start in range(0, len(drop), BATCH_SIZE):
+            Work.objects.filter(id__in=drop[start:start + BATCH_SIZE]).delete()
+        productions.filter(key__in=keys).delete()
+    return len(keys)
 
 
 class Command(BaseCommand):
     help = ('제목이 같은 뮤지컬·연극 공연(지역·시즌·극장만 다른 것)과 전시(순회·중복)를 작품(Production) 하나로 묶고, '
             '작품마다 가장 최근 공연 하나만 남기고 나머지 공연은 지운다. '
+            '장르가 가족 하나인 뮤지컬, 아동극 하나인 연극, 어린이·체험 하나인 전시는 먼저 지운다. '
             '수집·줄거리·장르·느낌·인기도를 갱신한 뒤에 실행한다.')
 
     def handle(self, *args, **options):
@@ -76,6 +125,9 @@ class Command(BaseCommand):
 
     def _group(self, category):
         label = Work.Category(category).label
+        excluded = _remove_excluded(category)
+        if excluded:
+            self.stdout.write(f'{label}: {EXCLUDED_GENRES[category]} 작품 {excluded}개를 지웠습니다.')
         groups = defaultdict(list)
         for work in Work.objects.filter(category=category).only(
                 'id', 'category', 'source_id', 'title', 'genres', 'moods', 'actors', 'venue', 'plot', 'plot_source',
