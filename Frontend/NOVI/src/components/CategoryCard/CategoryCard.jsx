@@ -12,7 +12,7 @@ const CategoryCard = forwardRef(function CategoryCard({ category, label, count, 
       className={`tt-category-card tt-category-card--${category}`}
       onClick={() => onSelect(category)}
       disabled={disabled}
-      aria-haspopup="dialog"
+      // aria-haspopup="dialog"
     >
       <span className="tt-category-card__poster" aria-hidden="true">
         <span className="tt-category-card__shape tt-category-card__shape--a" />
@@ -21,7 +21,7 @@ const CategoryCard = forwardRef(function CategoryCard({ category, label, count, 
       </span>
       <span className="tt-category-card__body">
         <span className="tt-category-card__desc">
-          {disabled ? `${label} 추천 준비 중` : `이번 주 ${label} 추천 ${count}편`}
+          {disabled ? `${label} 추천 준비 중` : `${label} 추천 ${count}편`}
         </span>
         <span className="tt-category-card__arrow" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
