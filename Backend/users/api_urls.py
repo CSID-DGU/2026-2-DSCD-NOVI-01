@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import bookmark_api_views, onboarding_api_views
+from . import bookmark_api_views, onboarding_api_views, ticket_api_views
 from .api_views import check_nickname, csrf, login_view, logout_view, me, signup
 
 urlpatterns = [
@@ -14,4 +14,7 @@ urlpatterns = [
     path('onboarding/criteria', onboarding_api_views.criteria, name='onboarding-criteria'),
     path('bookmarks', bookmark_api_views.bookmarks, name='bookmarks'),
     path('bookmarks/<str:item_id>', bookmark_api_views.bookmark_detail, name='bookmark-detail'),
+    path('tickets/', ticket_api_views.tickets, name='tickets'),
+    path('tickets/<int:pk>/', ticket_api_views.ticket_detail, name='ticket-detail'),
+    path('tickets/<int:pk>/diary/', ticket_api_views.ticket_diary, name='ticket-diary'),
 ]

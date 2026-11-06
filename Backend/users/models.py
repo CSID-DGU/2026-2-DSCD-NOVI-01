@@ -125,11 +125,12 @@ class UserSurvey(models.Model):
 
 
 class UserWork(models.Model):
-    """사용자가 입력한 작품 기록 (인생작·관람내역). 작품 하나가 한 행이다.
+    """사용자가 입력한 작품 기록 (인생작·관람내역). 인생작 하나, 티켓 한 장이 한 행이다.
 
     작품은 FK 없이 카테고리 + 작품 번호(item_id)로 가리킨다. 작품 DB에서 작품이 지워져도 기록이 깨지지 않게 하기 위함이다.
       item_id: 영화 = TMDB 번호(Work.source_id) / 뮤지컬 M00001 · 연극 P00001 · 전시 E00001 (Production.code)
     인생작은 사용자당 최대 5개(rank 1~5), 관람내역은 사용자 하나의 순서(input_order)로 카테고리 구분 없이 번호를 매긴다.
+    관람내역은 티켓을 등록하면 생긴다. 같은 작품을 다시 봐도 티켓마다 한 행이고, 작품 DB에 없는 작품은 item_id가 비어 있다.
     장르·배우 평가는 [{"value": "이름", "preference": 1}] 목록이다. 장르 이름은 작품 DB의 값 그대로 쓴다.
     """
 
@@ -140,7 +141,7 @@ class UserWork(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, models.CASCADE, related_name='works', verbose_name='사용자')
     record_type = models.CharField('기록 종류', max_length=10, choices=RecordType.choices)
     category = models.CharField('카테고리', max_length=10, choices=Work.Category.choices)
-    item_id = models.CharField('작품 번호', max_length=20)
+    item_id = models.CharField('작품 번호', max_length=20, blank=True, help_text='작품 DB와 연결하지 않은 티켓은 비어 있다')
     title = models.CharField('작품이름', max_length=300, help_text='입력할 때의 제목. 작품이 지워져도 남는다')
     rank = models.PositiveSmallIntegerField('인생작 순위', null=True, blank=True, help_text='인생작만 1~5')
     input_order = models.PositiveSmallIntegerField(
@@ -155,11 +156,18 @@ class UserWork(models.Model):
         '감독·장소 선호도', choices=Preference.choices, default=Preference.NEUTRAL,
         help_text='영화: 감독 / 그 외: 장소. 기록마다 하나만 받는다',
     )
+    director_ratings = models.JSONField('감독·연출별 선호도', default=list, blank=True, validators=[validate_genre_ratings],
+                                        help_text='티켓만. 화면 표시용이고 추천은 director_venue_pref를 쓴다')
+    viewed_at = models.DateField('관람 날짜', null=True, blank=True, help_text='티켓만')
+    venue = models.CharField('관람 장소', max_length=200, blank=True, help_text='티켓만. 티켓에 적힌 장소·영화관')
+    diary = models.TextField('관람 일기', blank=True, help_text='티켓만')
+    diary_updated_at = models.DateTimeField('일기 저장 시각', null=True, blank=True)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['user', 'record_type', 'category', 'item_id'], name='unique_user_work',
+                fields=['user', 'category', 'item_id'], condition=models.Q(record_type='life_work'),
+                name='unique_user_work',
             ),
             models.UniqueConstraint(
                 fields=['user', 'rank'], condition=models.Q(record_type='life_work'), name='unique_life_work_rank',
@@ -184,9 +192,9 @@ class UserWork(models.Model):
 
 
 class Recommendation(models.Model):
-    """사용자가 추천받은 작품. 북마크할 수 있는 작품인지 여기서 확인한다.
+    """사용자가 추천받아 북마크를 누른 작품. 북마크를 지웠다가 다시 저장할 때도 여기서 확인한다.
 
-    TODO: 추천 모델 코드를 받으면 채우는 방식을 정한다.
+    추천 화면에 나온 작품을 모두 넣지 않고, 북마크를 누를 때 지금 추천 목록에 있으면 저장한다.
     추천이 바뀌어도 지우지 않고 쌓는다. 예전 추천작의 북마크가 남아 있어야 하기 때문이다.
     작품은 UserWork처럼 FK 없이 카테고리 + 작품 번호(item_id)로 가리킨다.
     """
@@ -201,6 +209,25 @@ class Recommendation(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=['user', 'category', 'item_id'], name='unique_user_recommendation'),
+        ]
+
+    def __str__(self):
+        return f'{self.user} · [{self.get_category_display()}] {self.title}'
+
+
+class NotInterested(models.Model):
+    """사용자가 "관심 없어요"를 누른 작품. 다음 추천부터 후보에서 뺀다. 취향 점수에는 쓰지 않는다."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, models.CASCADE, related_name='not_interested',
+                             verbose_name='사용자')
+    category = models.CharField('카테고리', max_length=10, choices=Work.Category.choices)
+    item_id = models.CharField('작품 번호', max_length=20)
+    title = models.CharField('작품이름', max_length=300, help_text='누를 때의 제목. 작품이 지워져도 남는다')
+    created_at = models.DateTimeField('누른 시각', auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'category', 'item_id'], name='unique_user_not_interested'),
         ]
 
     def __str__(self):
