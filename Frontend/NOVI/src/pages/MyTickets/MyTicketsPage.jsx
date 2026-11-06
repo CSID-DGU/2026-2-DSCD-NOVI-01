@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import AppHeader from '../../components/AppHeader/AppHeader.jsx'
 import TicketCard from '../../components/MyTickets/TicketCard.jsx'
-import SavedWorksTab from '../../components/MyTickets/SavedWorksTab.jsx'
+import BookmarksPage from '../Bookmarks/BookmarksPage.jsx'
 import { CATEGORY_INFO } from '../../api/myTickets.js'
 import { fetchTickets } from '../../api/tickets.js'
 import './MyTicketsPage.css'
@@ -54,7 +54,7 @@ export default function MyTicketsPage() {
         <button type="button" role="tab" aria-selected={tab==='saved'} className={tab==='saved'?'is-active':''}
           onClick={()=>setSearchParams({ tab:'saved' })}><span aria-hidden="true">♧</span> 저장한 작품</button>
       </div>
-      {tab === 'saved' ? <div role="tabpanel" aria-label="저장한 작품"><SavedWorksTab /></div> : <div role="tabpanel" aria-label="관람 기록">
+      {tab === 'saved' ? <div role="tabpanel" aria-label="저장한 작품"><BookmarksPage embedded /></div> : <div role="tabpanel" aria-label="관람 기록">
         {location.state?.ticketSaved && <p className="mt-success" role="status">티켓이 저장되었어요.</p>}
         <section className="mt-stats" aria-label="나의 관람 통계">
           <div><span>관람 기록</span><strong>{tickets.length} <small>편</small></strong></div>
