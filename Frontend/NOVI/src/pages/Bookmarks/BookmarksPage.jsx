@@ -2,13 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppHeader from '../../components/AppHeader/AppHeader.jsx'
 import { getBookmarks, removeBookmark } from '../../api/bookmarks.js'
-import { MOCK_BOOKMARKS } from './mockBookmarks.js'
 import { getBookmarkStatus, toLocalDateString } from './bookmarkStatus.js'
 import './BookmarksPage.css'
 
-// 백엔드 북마크 API가 생기면 false로 바꾸기
-const USE_MOCK = true
-
+// 실제 Django 북마크 API 사용. 화면 스타일은 기존 그대로 유지합니다.
 const CATEGORY_LABEL = { movie: '영화', musical: '뮤지컬', play: '연극', exhibition: '전시' }
 
 const FILTERS = [
@@ -24,16 +21,6 @@ const SORTS = [
   { key: 'ending', label: '종료 임박순' },
 ]
 
-async function loadBookmarks() {
-  if (USE_MOCK) return { items: MOCK_BOOKMARKS }
-  return getBookmarks()
-}
-
-async function deleteBookmark(itemId) {
-  if (USE_MOCK) return null 
-  return removeBookmark(itemId)
-}
-
 const formatDate = (value) => (value ? value.replaceAll('-', '.') : '')
 
 function periodText(work) {
@@ -42,7 +29,6 @@ function periodText(work) {
   if (work.end_date) return `~ ${formatDate(work.end_date)}`
   return formatDate(work.date)
 }
-
 function subText(work) {
   if (work.category === 'movie') return work.directors?.join(', ') ?? ''
   return work.venue ?? ''
@@ -59,7 +45,7 @@ function sortBookmarks(items, sortKey, today) {
 
 export default function BookmarksPage() {
   const [items, setItems] = useState([])
-  const [status, setStatus] = useState('loading') 
+  const [status, setStatus] = useState('loading')
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
   const [filter, setFilter] = useState('all')
@@ -70,7 +56,7 @@ export default function BookmarksPage() {
     setStatus('loading')
     setLoadError('')
     try {
-      const data = await loadBookmarks()
+      const data = await getBookmarks()
       setItems(Array.isArray(data?.items) ? data.items : [])
       setStatus('ready')
     } catch (err) {
@@ -79,12 +65,9 @@ export default function BookmarksPage() {
     }
   }, [])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  useEffect(() => { load() }, [load])
 
   const today = toLocalDateString()
-
   const visible = useMemo(() => {
     const filtered = filter === 'all' ? items : items.filter((w) => w.category === filter)
     return sortBookmarks(filtered, sort, today)
@@ -96,7 +79,7 @@ export default function BookmarksPage() {
     setRemovingIds((prev) => new Set(prev).add(work.item_id))
     setItems((prev) => prev.filter((w) => w.item_id !== work.item_id))
     try {
-      await deleteBookmark(work.item_id)
+      await removeBookmark(work.item_id)
     } catch (err) {
       setItems((prev) => (prev.some((w) => w.item_id === work.item_id) ? prev : [...prev, work]))
       setActionError(`「${work.title}」 저장 해제에 실패했어요. ${err.message}`)
@@ -112,13 +95,11 @@ export default function BookmarksPage() {
   return (
     <div className="tt-bookmarks-page">
       <AppHeader />
-
       <main className="tt-bookmarks-page__main">
         <h1 className="tt-bookmarks-page__title">저장한 작품</h1>
         <p className="tt-bookmarks-page__subtitle">
           보고 싶은 작품을 모아 두었어요. 공연·전시는 기간이 끝나기 전에 확인하세요.
         </p>
-
         <div className="tt-bookmarks-page__toolbar">
           <div className="tt-bookmarks-page__filters" role="group" aria-label="분야 필터">
             {FILTERS.map((f) => (
@@ -133,49 +114,33 @@ export default function BookmarksPage() {
               </button>
             ))}
           </div>
-
           <label className="tt-bookmarks-page__sort">
             <span className="tt-visually-hidden">정렬</span>
             <select value={sort} onChange={(e) => setSort(e.target.value)}>
               {SORTS.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label}
-                </option>
+                <option key={s.key} value={s.key}>{s.label}</option>
               ))}
             </select>
           </label>
         </div>
 
-        {actionError && (
-          <p className="tt-bookmarks-page__notice" role="alert">
-            {actionError}
-          </p>
-        )}
-
+        {actionError && <p className="tt-bookmarks-page__notice" role="alert">{actionError}</p>}
         {status === 'loading' && <p className="tt-bookmarks-page__state">불러오는 중…</p>}
-
         {status === 'error' && (
           <div className="tt-bookmarks-page__state" role="alert">
             <p>{loadError}</p>
-            <button type="button" className="tt-bookmarks-page__action" onClick={load}>
-              다시 불러오기
-            </button>
+            <button type="button" className="tt-bookmarks-page__action" onClick={load}>다시 불러오기</button>
           </div>
         )}
-
         {status === 'ready' && items.length === 0 && (
           <div className="tt-bookmarks-page__state">
             <p>아직 저장한 작품이 없어요.</p>
-            <Link to="/picks" className="tt-bookmarks-page__action">
-              추천 작품 보러 가기
-            </Link>
+            <Link to="/picks" className="tt-bookmarks-page__action">추천 작품 보러 가기</Link>
           </div>
         )}
-
         {status === 'ready' && items.length > 0 && (
           <>
             <p className="tt-bookmarks-page__count">{visible.length}개</p>
-
             {visible.length === 0 ? (
               <p className="tt-bookmarks-page__state">이 분야에 저장한 작품이 없어요.</p>
             ) : (
@@ -186,11 +151,7 @@ export default function BookmarksPage() {
                   return (
                     <li key={work.item_id} className={`tt-bookmark-card${ended ? ' is-ended' : ''}`}>
                       <div className={`tt-bookmark-card__poster tt-bookmark-card__poster--${work.category}`}>
-                        {work.image_url ? (
-                          <img src={work.image_url} alt="" loading="lazy" />
-                        ) : (
-                          <span className="tt-bookmark-card__poster-label">포스터 이미지 넣기</span>
-                        )}
+                        {work.image_url ? <img src={work.image_url} alt="" loading="lazy" /> : <span className="tt-bookmark-card__poster-label">포스터 이미지 넣기</span>}
                         <span className="tt-bookmark-card__tag">{CATEGORY_LABEL[work.category]}</span>
                         <button
                           type="button"
@@ -205,7 +166,6 @@ export default function BookmarksPage() {
                           </svg>
                         </button>
                       </div>
-
                       <div className="tt-bookmark-card__body">
                         {/* 작품 상세 페이지 경로가 정해지면 제목을 Link로 바꾸기 */}
                         <h2 className="tt-bookmark-card__title">{work.title}</h2>

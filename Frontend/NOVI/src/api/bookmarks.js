@@ -1,48 +1,20 @@
-// 백엔드 구현 전이라 아직 호출되지 않음
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+// API.md(2026-11-04): 추천받은 작품만 북마크 추가 가능
+import { apiRequest } from './auth.js'
 
-async function request(path, { headers, ...options } = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...headers },
-  })
-
-  if (!res.ok) {
-    let message = '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.'
-    if (res.status === 401) message = '로그인이 필요해요.'
-    try {
-      const data = await res.json()
-      if (data?.message) message = data.message
-    } catch {
-      // 본문이 JSON이 아니면 기본 메시지 사용
-    }
-    const error = new Error(message)
-    error.status = res.status
-    throw error
-  }
-
-  return res.status === 204 ? null : res.json()
-}
-
-/**
- * GET /api/bookmarks
- * 응답 { "count": 6, "items": [{ item_id, id, category, title, image_url, venue, directors, date, end_date, saved_at }] }
- */
+// GET /api/bookmarks → { count, items }
 export function getBookmarks() {
-  return request('/api/bookmarks')
+  return apiRequest('/api/bookmarks')
 }
 
-/**
- * POST /api/bookmarks  body { "item_id": "M01809" } → 201
- */
+// POST /api/bookmarks, 성공 시 200(기존) 또는 201(신규)
 export function addBookmark(itemId) {
-  return request('/api/bookmarks', { method: 'POST', body: JSON.stringify({ item_id: itemId }) })
+  return apiRequest('/api/bookmarks', {
+    method: 'POST',
+    body: { item_id: String(itemId) },
+  })
 }
 
-/**
- * DELETE /api/bookmarks/{item_id} → 204
- */
+// DELETE /api/bookmarks/{item_id}, 성공 시 204(응답 본문 없음)
 export function removeBookmark(itemId) {
-  return request(`/api/bookmarks/${encodeURIComponent(itemId)}`, { method: 'DELETE' })
+  return apiRequest(`/api/bookmarks/${encodeURIComponent(String(itemId))}`, { method: 'DELETE' })
 }
