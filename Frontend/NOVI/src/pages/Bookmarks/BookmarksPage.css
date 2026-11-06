@@ -333,3 +333,74 @@
     padding-top: 28px;
   }
 }
+
+/* My Tickets의 "저장한 작품" 탭에 포함된 경우에만 적용합니다.
+   팀원 북마크 페이지의 필터/정렬/상태/삭제 로직과 별도 페이지 스타일은 유지합니다. */
+.tt-bookmarks-page--embedded {
+  min-height: 0;
+}
+
+.tt-bookmarks-page--embedded .tt-bookmarks-page__main {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 0 28px;
+}
+
+.tt-bookmarks-page--embedded .tt-bookmarks-page__subtitle {
+  margin: 0 0 18px;
+  font-size: 12px;
+}
+
+.tt-bookmarks-page--embedded .tt-bookmarks-page__toolbar {
+  margin-top: 0;
+}
+
+.tt-bookmarks-page--embedded .tt-bookmarks-page__filters button,
+.tt-bookmarks-page--embedded .tt-bookmarks-page__sort select {
+  font-size: 12px;
+}
+
+.tt-bookmarks-page--embedded .tt-bookmarks-page__count {
+  margin: 18px 0 16px;
+}
+
+.tt-bookmarks-page--embedded .tt-bookmarks-page__grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 23px;
+}
+
+.tt-bookmarks-page--embedded .tt-bookmark-card {
+  min-width: 0;
+  border-radius: 24px;
+}
+
+.tt-bookmarks-page--embedded .tt-bookmark-card__poster {
+  height: 188px;
+}
+
+@media (max-width: 1050px) {
+  .tt-bookmarks-page--embedded .tt-bookmarks-page__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+}
+
+@media (max-width: 760px) {
+  .tt-bookmarks-page--embedded .tt-bookmarks-page__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px;
+  }
+  .tt-bookmarks-page--embedded .tt-bookmark-card__poster {
+    height: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tt-bookmarks-page--embedded .tt-bookmarks-page__grid {
+    gap: 10px;
+  }
+  .tt-bookmarks-page--embedded .tt-bookmark-card__poster {
+    height: 123px;
+  }
+}

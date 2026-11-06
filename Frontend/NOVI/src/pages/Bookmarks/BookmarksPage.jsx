@@ -43,7 +43,7 @@ function sortBookmarks(items, sortKey, today) {
   return copy.sort((a, b) => (b.saved_at ?? '').localeCompare(a.saved_at ?? ''))
 }
 
-export default function BookmarksPage() {
+export default function BookmarksPage({ embedded = false }) {
   const [items, setItems] = useState([])
   const [status, setStatus] = useState('loading')
   const [loadError, setLoadError] = useState('')
@@ -93,10 +93,10 @@ export default function BookmarksPage() {
   }
 
   return (
-    <div className="tt-bookmarks-page">
-      <AppHeader />
+    <div className={`tt-bookmarks-page${embedded ? ' tt-bookmarks-page--embedded' : ''}`}>
+      {!embedded && <AppHeader />}
       <main className="tt-bookmarks-page__main">
-        <h1 className="tt-bookmarks-page__title">저장한 작품</h1>
+        {!embedded && <h1 className="tt-bookmarks-page__title">저장한 작품</h1>}
         <p className="tt-bookmarks-page__subtitle">
           보고 싶은 작품을 모아 두었어요. 공연·전시는 기간이 끝나기 전에 확인하세요.
         </p>
