@@ -2,6 +2,7 @@
 from django.http import HttpResponse
 from django.views.decorators.http import require_http_methods
 
+from recommend import services as recommend_services
 from works.models import Production, Work
 
 from .api_views import _body, _json, login_required_json
@@ -37,7 +38,8 @@ def _add(request):
     item_id = _body(request).get('item_id')
     if not isinstance(item_id, str) or not item_id:
         return _json({'message': '작품 번호를 보내 주세요.'}, status=400)
-    recommendation = request.user.recommendations.filter(item_id=item_id).first()
+    recommendation = (request.user.recommendations.filter(item_id=item_id).first()
+                      or recommend_services.save_recommendation(request.user, item_id))
     if recommendation is None:
         return _json({'message': '추천받은 작품만 저장할 수 있습니다.'}, status=403)
     work = _find_works([recommendation]).get(item_id)

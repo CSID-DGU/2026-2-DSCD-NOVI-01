@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -11,6 +13,9 @@ PATH = '/api/bookmarks'
 
 class BookmarkTestCase(TestCase):
     def setUp(self):
+        patcher = patch('recommend.services.recommend_for_user', return_value={'recommendations': {'연극': []}})
+        self.engine = patcher.start()
+        self.addCleanup(patcher.stop)
         self.user = User.objects.create_user('손석현', 'abcd1234')
         self.client.force_login(self.user)
         self.musical = Production.objects.create(
@@ -41,6 +46,31 @@ class AddBookmarkTests(BookmarkTestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json(), {'message': '추천받은 작품만 저장할 수 있습니다.'})
         self.assertFalse(Bookmark.objects.exists())
+
+    def test_work_in_current_picks_is_saved_to_recommendation(self):
+        Production.objects.create(category='play', key='미러', code='P00001', title='미러')
+        self.engine.return_value = {'recommendations': {'연극': [{'item_id': 'P00001', 'title': '미러', 'rank': 3}]}}
+        self.assertEqual(self.add('P00001').status_code, 201)
+        row = Recommendation.objects.get(item_id='P00001')
+        self.assertEqual((row.user, row.category, row.title, row.rank), (self.user, 'play', '미러', 3))
+        self.assertTrue(Bookmark.objects.filter(user=self.user, category='play', item_id='P00001').exists())
+
+    def test_saved_recommendation_skips_engine(self):
+        self.add('M01809')
+        self.engine.assert_not_called()
+
+    def test_work_can_be_saved_again_after_leaving_picks(self):
+        Production.objects.create(category='play', key='미러', code='P00001', title='미러')
+        self.engine.return_value = {'recommendations': {'연극': [{'item_id': 'P00001', 'title': '미러', 'rank': 3}]}}
+        self.add('P00001')
+        self.client.delete(f'{PATH}/P00001')
+        self.engine.return_value = {'recommendations': {'연극': []}}
+        self.assertEqual(self.add('P00001').status_code, 201)
+
+    def test_user_without_usable_life_work_is_rejected(self):
+        self.engine.side_effect = ValueError('추천에 쓸 수 있는 인생작이 없다')
+        Production.objects.create(category='play', key='미러', code='P00001', title='미러')
+        self.assertEqual(self.add('P00001').status_code, 403)
 
     def test_other_users_recommendation_does_not_count(self):
         other = User.objects.create_user('다른회원', 'abcd1234')

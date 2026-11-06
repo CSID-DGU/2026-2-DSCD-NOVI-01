@@ -7,6 +7,7 @@
 - 파일 읽기·쓰기와 λ 비교표(LAMBDAS 반복)를 뺐다. 최종 추천은 λ = LAMBDA(0.3) 하나로 계산한다
 - 파일의 모든 사용자를 한 번에 계산하는 대신 사용자 한 명씩 계산한다 (rerank)
 - 요소 중요도가 없거나 합이 0인 카테고리는 세 요소를 같은 비중(1/3)으로 본다 (원본은 에러)
+- 기본 제외 장르는 그 장르 하나만 붙은 작품만 뺀다 (2026-11-06 결정. 원본은 다른 장르가 같이 붙어도 뺀다)
 
 입력
 - user: UserInput. 카테고리별 요소 중요도(설문) + 인생작·관람 기록별 장르·사람 선호와 감독·장소 평가
@@ -28,7 +29,7 @@ PENALTY_RATIO = 1.0  # 감점 = 가점과 같은 크기
 ALPHA = 0.01         # 논문 미세 보정값
 TOP_N = 5            # 최종 추천 수 (카테고리별)
 TOP_ACTORS = 5       # 배우·출연진·작가는 앞 5명만 비교
-EXCLUDE_GENRE = {'전시': {'어린이·체험'}, '연극': {'아동극'}, '뮤지컬': {'가족'}}  # 모든 사용자 기본 제외 장르 (서비스 사용자는 모두 성인. 뮤지컬 '가족' = 어린이 뮤지컬)
+EXCLUDE_GENRE = {'전시': {'어린이·체험'}, '연극': {'아동극'}, '뮤지컬': {'가족'}}  # 모든 사용자 기본 제외 장르, 이 장르만 붙은 작품을 뺀다 (서비스 사용자는 모두 성인. 뮤지컬 '가족' = 어린이 뮤지컬)
 CATS = ['영화', '뮤지컬', '연극', '전시']
 SHOW_FILES = [('musicals.csv', '뮤지컬'), ('plays.csv', '연극'), ('exhibitions.csv', '전시')]
 
@@ -158,7 +159,7 @@ def adjust(cands, c, w, pp, res):
     kept, excluded = [], []
     for r in cands:
         genres = r['genres'].split('|') if r['genres'] else []
-        if c in EXCLUDE_GENRE and EXCLUDE_GENRE[c] & set(genres):
+        if c in EXCLUDE_GENRE and genres and set(genres) <= EXCLUDE_GENRE[c]:
             excluded.append(r); continue
         info = res.db.get((c, r['item_id']), {'actors': [], 'makers': []})
         notes, adj = [], float(r['score'])

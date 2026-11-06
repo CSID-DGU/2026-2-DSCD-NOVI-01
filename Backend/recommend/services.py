@@ -15,7 +15,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db import connection
 
-from users.models import UserSurvey, UserWork
+from users.models import NotInterested, Recommendation, UserSurvey, UserWork
 from works.models import Production, Work
 
 from . import model_store
@@ -97,19 +97,61 @@ def build_stage2_input(user):
     return {'survey': survey, 'records': records}
 
 
+def build_not_interested(user):
+    """"관심 없어요" 작품. 평가가 없는 관람내역으로 넘기면 엔진이 후보에서 빼고, 취향 계산에는 쓰이지 않는다"""
+    return [{'kind': UserWork.RecordType.HISTORY, 'category': CATEGORY_KO[n.category], 'item_id': n.item_id,
+             'genres': [], 'persons': [], 'maker_place_pref': PREF_KO[0]}
+            for n in NotInterested.objects.filter(user=user)]
+
+
 def build_input(user):
     """두 단계 입력을 엔진 입력 JSON 하나로 합친다 (engine/recommend.py 맨 위의 형식).
     인생작은 rank 순, 관람내역은 input_order 순 (검증한 입력 파일과 같은 순서)"""
     rank = {w['item_id']: w['rank'] for w in build_stage1_input(user)}
     s2 = build_stage2_input(user)
     records = [dict(r, rank=rank[r['item_id']]) if r['kind'] == UserWork.RecordType.LIFE_WORK else r for r in s2['records']]
-    return {'user_id': str(user.pk), 'survey': s2['survey'], 'records': records}
+    return {'user_id': str(user.pk), 'survey': s2['survey'], 'records': records + build_not_interested(user)}
 
 
 def recommend_for_user(user, today=None):
     """반환: 엔진 결과 dict. 인생작이 없거나 모두 모델이 모르는 작품이면 ValueError"""
     today = today or date.today().isoformat()   # settings: USE_TZ=False, TIME_ZONE=Asia/Seoul
     return get_engine().recommend(user_from_json(build_input(user)), today)
+
+
+def save_recommendation(user, item_id):
+    """지금 추천 목록에 있는 작품이면 Recommendation에 저장해 돌려준다. 없으면 None. 북마크를 누를 때 부른다"""
+    try:
+        recs = recommend_for_user(user)['recommendations']
+    except ValueError:   # 인생작이 없거나 모두 모델이 모르는 작품
+        return None
+    for c, items in recs.items():
+        for x in items:
+            if x['item_id'] == item_id:
+                recommendation, _ = Recommendation.objects.get_or_create(
+                    user=user, category=CATEGORY_EN[c], item_id=item_id, defaults={'title': x['title'], 'rank': x['rank']})
+                return recommendation
+    return None
+
+
+def find_work(item_id):
+    """item_id의 작품 (영화 Work 또는 공연·전시 Production). 없으면 None"""
+    return (Production.objects.filter(code=item_id).first()
+            or Work.objects.filter(category=Work.Category.MOVIE, source_id=item_id).first())
+
+
+def pick_detail(user, work):
+    """추천 상세 화면에 쓰는 작품 정보 + 이 사용자의 북마크·응답 상태. 응답은 저장하는 "관심 없어요"만 알 수 있다"""
+    item_id, category = work.item_id, work.category
+    return {
+        'item_id': item_id, 'id': f'{category}:{work.pk}', 'category': category, 'title': work.title,
+        'genres': work.genres, 'actors': work.actors, 'directors': getattr(work, 'directors', []), 'venue': work.venue,
+        'plot': work.plot, 'image_url': work.image_url,
+        'date': work.date.isoformat() if work.date else None,
+        'end_date': work.end_date.isoformat() if work.end_date else None,
+        'bookmarked': user.bookmarks.filter(category=category, item_id=item_id).exists(),
+        'response': 'not_interested' if user.not_interested.filter(category=category, item_id=item_id).exists() else None,
+    }
 
 
 def to_api(result):
@@ -125,8 +167,10 @@ def to_api(result):
         for x in items:
             db = movies.get(x['item_id']) if c == '영화' else shows.get(x['item_id'])
             rows.append({
-                'rank': x['rank'], 'item_id': x['item_id'], 'category': CATEGORY_EN[c], 'title': x['title'],
+                'rank': x['rank'], 'item_id': x['item_id'], 'id': f'{CATEGORY_EN[c]}:{db.pk}' if db else None,
+                'category': CATEGORY_EN[c], 'title': x['title'],
                 'genres': [g for g in x['genres'].split('|') if g],
+                'actors': db.actors if db else [], 'directors': getattr(db, 'directors', []),
                 'image_url': db.image_url if db else '', 'venue': getattr(db, 'venue', '') if db else '',
                 'date': db.date.isoformat() if db and db.date else None,
                 'end_date': db.end_date.isoformat() if db and db.end_date else None,
