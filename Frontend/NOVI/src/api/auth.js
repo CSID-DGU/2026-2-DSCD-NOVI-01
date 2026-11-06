@@ -1,5 +1,4 @@
-// API.md(2026-11-01): GET /api/auth/check-nickname, POST /api/auth/signup, POST /api/auth/login
-// 인증은 Django 세션 쿠키 방식(제안). 실제 API 및 CSRF 방식은 백엔드 구현 후 확인해야 합니다.
+// API.md(2026-11-04): 세션 쿠키 인증 및 CSRF 보호
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 const LOGIN_HINT_KEY = 'novi.ui.login-completed'
 
@@ -8,9 +7,7 @@ function readCookie(name) {
   return entry ? decodeURIComponent(entry.slice(name.length + 1)) : ''
 }
 
-// 명세서에는 CSRF 준비 API가 정의되지 않았습니다.
-// CSRF 쿠키가 이미 발급된 경우 헤더에 넣고, 백엔드가 추후 지정한 준비 API가 있을 때만 호출합니다.
-// 백엔드가 기본 CSRF 검사를 사용한다면 토큰을 발급하는 API나 설정을 반드시 협의해야 합니다.
+// VITE_CSRF_API_PATH=/api/auth/csrf 설정 시 최초 POST 전에 토큰을 발급받습니다.
 async function csrfHeader() {
   let token = readCookie('csrftoken')
   const setupPath = import.meta.env.VITE_CSRF_API_PATH
@@ -46,10 +43,13 @@ export async function apiRequest(path, { method = 'GET', body, signal } = {}) {
   const contentType = response.headers.get('content-type') || ''
   const data = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {}
   if (!response.ok) {
-    if (response.status === 404) throw new Error(`API가 아직 구현되지 않았거나 주소가 달라요: ${method} ${path}`)
-    if (response.status === 401) throw new Error(data.message || '로그인 정보가 올바르지 않거나 세션이 만료됐어요.')
-    if (response.status === 403) throw new Error(data.message || '403 오류: 백엔드 CSRF 인증 방식/접속 주소를 확인해 주세요.')
-    throw new Error(data.message || data.error || `요청에 실패했어요. (${response.status})`)
+    let message = data.message || data.error || `요청에 실패했어요. (${response.status})`
+    if (response.status === 404) message = `API가 아직 구현되지 않았거나 주소가 달라요: ${method} ${path}`
+    if (response.status === 401) message = data.message || '로그인 정보가 올바르지 않거나 세션이 만료됐어요.'
+    if (response.status === 403) message = data.message || '403 오류: 백엔드 CSRF 인증 방식/접속 주소를 확인해 주세요.'
+    const error = new Error(message)
+    error.status = response.status
+    throw error
   }
   return data
 }
@@ -81,10 +81,13 @@ export async function login({ nickname, password }) {
   return data
 }
 
-// 이 두 API는 2026-11-01 API.md에 없습니다. 지원한다고 가정해 요청하지 않습니다.
+// Django 세션이 유효한지 서버에 확인합니다.
 export async function getCurrentUser() {
-  throw new Error('API 명세서에 현재 사용자 조회 API가 없습니다. 백엔드 담당자와 협의가 필요합니다.')
+  return apiRequest('/api/auth/me')
 }
+
 export async function logout() {
-  throw new Error('API 명세서에 서버 로그아웃 API가 없습니다. 로그아웃 엔드포인트를 백엔드 담당자에게 요청해 주세요.')
+  await apiRequest('/api/auth/logout', { method: 'POST' })
+  // 서버 로그아웃 성공 후에만 화면의 임시 로그인 힌트를 제거합니다.
+  clearUiLoginHint()
 }

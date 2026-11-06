@@ -27,3 +27,15 @@
 @media(max-width:690px){.mt-page{padding:22px 16px 60px}.mt-container{margin-top:22px}.mt-card-grid{grid-template-columns:1fr;gap:13px}.mt-stats{grid-template-columns:1fr;gap:10px}.mt-stats>div{min-height:auto;padding:16px 20px}.mt-header-area h1{font-size:29px}.mt-toolbar{align-items:flex-start;flex-direction:column}.mt-filters button{padding:9px 13px}.mt-header-actions{width:100%}.mt-header-action{flex:1;justify-content:center}}
 /* 상세·일기·북마크에서도 동일한 목록 복귀 링크 사용 */
 .mt-back-link { color:#6a5bad; font-size:13px; display:inline-block; margin-bottom:10px; font-weight:700; }
+/* SVG 10 / 12: 관람 기록과 저장한 작품을 같은 페이지의 탭으로 배치합니다. */
+.mt-page { padding-top:24px; }
+.mt-container { margin-top:27px; }
+.mt-header-area h1 { margin-bottom:6px; }
+.mt-tabs { width:max-content; display:flex; gap:3px; padding:4px; border:1px solid #d9dfed; border-radius:28px; background:#fff; margin:17px 0 22px; max-width:100%; }
+.mt-tabs button { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-width:151px; padding:10px 18px; border:0; border-radius:25px; background:transparent; font-size:12px; color:#676e88; font-weight:700; cursor:pointer; }
+.mt-tabs button.is-active { color:#5949a2; background:#e9e3f9; }
+.mt-tabs button:focus-visible { outline:2px solid #7460be; outline-offset:2px; }
+.mt-success { font-size:12px; background:#edf8ef; padding:10px 15px; color:#317b51; border-radius:12px; }
+.mt-stats { margin-top:0; }
+.mt-empty__add { border:0; cursor:pointer; }
+@media(max-width:690px){.mt-tabs{width:100%}.mt-tabs button{min-width:0;flex:1}}

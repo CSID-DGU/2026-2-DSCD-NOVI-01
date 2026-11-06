@@ -1,6 +1,6 @@
 import { apiRequest } from './auth.js'
 
-// API (1).md: 온보딩 전체 저장 및 조회. 백엔드 실제 구현 전에는 404가 정상일 수 있습니다.
+// 온보딩 전체 저장/조회와 중요도만 부분 수정 (API.md 2026-11-04).
 const PATH = '/api/onboarding/preferences'
 const CATEGORIES = ['movie', 'play', 'musical', 'exhibition']
 const FIELDS = ['genre', 'actor', 'director_venue']
@@ -40,8 +40,29 @@ export function getSavedOnboarding() {
   return apiRequest(PATH)
 }
 
-// API.md에는 온보딩 전체 교체 POST만 있으며 중요도만 수정하는 PATCH는 정의되지 않았습니다.
-// POST를 대신 사용하면 인생작이 전부 교체될 수 있으므로 의도적으로 저장하지 않습니다.
-export async function updateSurveyCriteria() {
-  throw new Error('중요도만 수정하는 API가 명세서에 없어요. 인생작 보존을 위해 저장하지 않았습니다. 백엔드 담당자에게 PATCH API를 요청해 주세요.')
+// 인생작·작품별 평가는 건드리지 않고, 보낸 카테고리의 중요도만 수정합니다.
+// 사용 예: updateSurveyCriteria({ movie: { genre: 50, actor: 100, director_venue: 0 } })
+export function updateSurveyCriteria(criteria) {
+  if (!criteria || typeof criteria !== 'object' || Array.isArray(criteria)) {
+    throw new Error('수정할 중요도 정보가 없습니다.')
+  }
+  const keys = Object.keys(criteria)
+  if (keys.length === 0) throw new Error('수정할 카테고리를 선택해 주세요.')
+  for (const category of keys) {
+    if (!CATEGORIES.includes(category)) throw new Error('알 수 없는 카테고리입니다.')
+    const weights = criteria[category]
+    if (!weights || !FIELDS.every(field =>
+      Number.isInteger(weights[field]) &&
+      weights[field] >= 0 && weights[field] <= 100 && weights[field] % 10 === 0
+    )) {
+      throw new Error('중요도는 0~100 사이의 10 단위로 설정해 주세요.')
+    }
+    if (FIELDS.every(field => weights[field] === 0)) {
+      throw new Error('한 카테고리의 세 중요도를 모두 0으로 설정할 수는 없어요.')
+    }
+  }
+  return apiRequest('/api/onboarding/criteria', {
+    method: 'PATCH',
+    body: { criteria },
+  })
 }
