@@ -3,3 +3,5 @@
 #   git -C recommend/third_party/VQ-Rec checkout 298184509f206df44bb1809895cbe5a5e4a7d7be
 # 패키지 설치는 requirements_recommend.txt 맨 위 설명을 따른다
 third_party/
+# DB(ModelFile)에서 꺼낸 엔진 파일 캐시 (model_store.py)
+model_cache/
