@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import PickCard from '../PickCard/PickCard.jsx'
 import './PicksPanel.css'
+import { Link } from 'react-router-dom'
 
 const OPEN_EASING = 'cubic-bezier(.2, .8, .2, 1)'
 const ORIGIN_MAX_AGE_MS = 1000
@@ -96,8 +97,10 @@ export default function PicksPanel({ category, categories, picks, getOrigin, onC
       ) : (
         <ul ref={listRef} key={category} className="tt-picks-panel__list">
           {picks.map((work) => (
-            <li key={work.id} className="tt-picks-panel__item" data-pick-item>
-              <PickCard work={work} />
+              <li key={work.id} className="tt-picks-panel__item" data-pick-item>
+              <Link to={`/picks/${encodeURIComponent(work.id)}`} className="tt-picks-panel__link">
+                <PickCard work={work} />
+              </Link>
             </li>
           ))}
         </ul>

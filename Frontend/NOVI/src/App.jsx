@@ -11,6 +11,8 @@ import TicketResultPage from './pages/TicketResult/TicketResultPage.jsx'
 import RequireAuth from './components/RequireAuth/RequireAuth.jsx'
 import DiaryWritePage from './pages/Diary/DiaryWritePage.jsx'
 import TodaysPicksPage from './pages/TodaysPicks/TodaysPicksPage.jsx'
+import PickDetailPage from './pages/PickDetail/PickDetailPage.jsx'
+
 
 function App() {
   return (
@@ -25,6 +27,7 @@ function App() {
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/home" element={<HomePage />} />
           <Route path="/picks" element={<TodaysPicksPage />} />
+          <Route path="/picks/:pickId" element={<PickDetailPage />} />
 
           <Route path="/tickets" element={<MyTicketsPage />} />
           <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
