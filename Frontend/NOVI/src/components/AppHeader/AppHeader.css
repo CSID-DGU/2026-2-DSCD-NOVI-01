@@ -1,67 +1,19 @@
-.tt-app-header { width: 100%; }
-.tt-app-header__inner {
-  max-width: 1152px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 48px;
-  gap: 18px;
-}
-.tt-app-header__nav { display: flex; align-items: center; gap: clamp(10px, 2.3vw, 30px); }
-.tt-app-header__link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 14px;
-  border-radius: 24px;
-  color: #5f6682;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: background .15s, color .15s;
-}
-.tt-app-header__link:hover, .tt-app-header__link.is-active { background: #e6e1f7; color: #29294f; }
-.tt-app-header__link:focus-visible { outline: 3px solid #7764cd; outline-offset: 2px; }
-
-/* 기존 링크들과 어울리는 작은 로그아웃 버튼 */
-.tt-app-header__logout {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  padding: 9px 15px;
-  border: 1px solid #d9d3ee;
-  border-radius: 24px;
-  color: #5f6682;
-  background: #fff;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color .15s, background .15s, border-color .15s;
-}
-.tt-app-header__logout:hover:not(:disabled) {
-  color: #39315c;
-  background: #f3f0fc;
-  border-color: #bfb4e6;
-}
-.tt-app-header__logout:focus-visible {
-  outline: 3px solid #7764cd;
-  outline-offset: 2px;
-}
-.tt-app-header__logout:disabled { opacity: .65; cursor: wait; }
-.tt-app-header__error {
-  max-width: 1152px;
-  margin: 3px auto 0;
-  color: #b63d5e;
-  font-size: 12px;
-}
-@media(max-width: 600px) {
-  .tt-app-header__inner { align-items: flex-start; flex-direction: column; }
-  .tt-app-header__nav { width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 4px; }
-  .tt-app-header__link { font-size: 12px; padding: 8px 12px; }
-  .tt-app-header__logout { margin-left: auto; font-size: 12px; padding: 7px 12px; }
-}
+.tt-app-header { width:100%; position:relative; z-index:30; }
+.tt-app-header__inner { max-width:1382px; margin:0 auto; min-height:52px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.tt-app-header__nav { display:flex; align-items:center; gap:clamp(6px,2vw,24px); margin-left:auto; }
+.tt-app-header__link { display:inline-flex; justify-content:center; align-items:center; padding:11px 21px; border-radius:24px; color:#666c87; font-size:13px; font-weight:500; white-space:nowrap; transition:background .15s,color .15s; }
+.tt-app-header__link:hover,.tt-app-header__link.is-active { background:#e8e3f8; color:#2b2a4d; }
+.tt-app-header__account { position:relative; flex:0 0 auto; }
+.tt-app-header__profile { width:39px; height:39px; border:1px solid #d6d9ed; border-radius:50%; background:#fff; color:#556181; display:grid; place-items:center; cursor:pointer; }
+.tt-app-header__profile:hover,.tt-app-header__profile.is-open { border-color:#6c57bc; background:#ece8fb; color:#6450b6; }
+.tt-app-header__menu { position:absolute; right:0; top:calc(100% + 10px); width:182px; background:#fff; border:1px solid #f0eff8; box-shadow:0 14px 35px rgba(40,39,80,.13); border-radius:18px; padding:9px; display:flex; flex-direction:column; gap:3px; }
+.tt-app-header__profile-details { display:flex; flex-direction:column; gap:3px; padding:9px 9px 10px; border-bottom:1px solid #ededf6; margin-bottom:3px; }
+.tt-app-header__profile-details strong { font-size:13px; color:#302e53; }
+.tt-app-header__profile-details span { font-size:11px; color:#8185a0; }
+.tt-app-header__menu-link { font:inherit; width:100%; display:block; text-align:left; border:0; border-radius:10px; background:transparent; padding:10px 9px; color:#646b85; font-size:12px; text-decoration:none; cursor:pointer; }
+.tt-app-header__menu-link:hover,.tt-app-header__menu-link.active { background:#f0eafb; color:#6853b1; }
+.tt-app-header__menu-logout { border-top:1px solid #f2eff8; border-radius:0 0 10px 10px; }
+.tt-app-header__menu-link:disabled { opacity:.6; cursor:wait; }
+.tt-app-header__error { color:#ae5065; font-size:11px; line-height:1.5; margin:4px 8px; }
+.tt-app-header button:focus-visible,.tt-app-header a:focus-visible { outline:3px solid #7a69c3; outline-offset:2px; }
+@media(max-width:650px) { .tt-app-header__inner { flex-wrap:wrap; gap:10px; } .tt-app-header__nav { order:3; width:100%; justify-content:space-around; margin:0; } .tt-app-header__link { padding:8px 13px; font-size:12px; } .tt-app-header__account { margin-left:auto; } }

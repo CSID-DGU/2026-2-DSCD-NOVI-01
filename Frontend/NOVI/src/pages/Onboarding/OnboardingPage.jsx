@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Logo from '../../components/Logo.jsx'
 import { ONBOARDING_DEMO, getWorkDetail, saveOnboarding, searchWorks } from '../../api/works.js'
+import { loadSavedOnboardingDraft } from '../../api/onboardingRestore.js'
 import './OnboardingPage.css'
 
 // 백엔드 API 명세서 기준: 영화는 감독, 공연·전시는 장소 중요도를 평가합니다.
@@ -87,6 +88,29 @@ function OnboardingPage() {
   const [saveError, setSaveError] = useState('')
   const [criteriaError, setCriteriaError] = useState('')
   const [finished] = useState(false)
+  const [restoring, setRestoring] = useState(!ONBOARDING_DEMO)
+  const [restoreError, setRestoreError] = useState('')
+  const [restoreRetry, setRestoreRetry] = useState(0)
+
+  useEffect(() => {
+    if (ONBOARDING_DEMO) return undefined
+    let cancelled = false
+    setRestoring(true)
+    setRestoreError('')
+    loadSavedOnboardingDraft()
+      .then((saved) => {
+        if (cancelled || !saved) return
+        setCriteria(saved.criteria)
+        setChosen(saved.chosen)
+        setVotes(saved.votes)
+      })
+      .catch((err) => {
+        if (!cancelled) setRestoreError(err.message || '저장된 온보딩을 불러오지 못했어요.')
+      })
+      .finally(() => { if (!cancelled) setRestoring(false) })
+    return () => { cancelled = true }
+  }, [restoreRetry])
+
 
   useEffect(() => {
     if (stage !== 2 || !query.trim()) { setResults([]); setSearching(false); setSearchError(''); return }
@@ -204,6 +228,23 @@ function OnboardingPage() {
     ['director_venue', current.category === '영화' ? '감독' : '장소',
       (current.category === '영화' ? (current.directors || []) : (current.venue || [])).slice(0, 1)],
   ].filter((group) => group[2].length > 0) : []
+
+  // 복원 중에는 저장 버튼을 표시하지 않아 기존 인생작을 빈 값으로 덮어쓰지 않습니다.
+  if (restoring || restoreError) {
+    return <div className="onb-page">
+      <header className="onb-header"><Logo /><Progress stage={stage} /></header>
+      <main className="onb-content">
+        {restoring ? <div className="onb-loading" role="status">저장된 취향 정보를 불러오는 중…</div> :
+          <section className="onb-load-error" role="alert">
+            <h1>저장된 취향 정보를 복원하지 못했어요.</h1>
+            <p>{restoreError}</p>
+            <p>기존 인생작과 평가는 그대로 유지됩니다.</p>
+            <button type="button" className="onb-btn onb-btn--primary" onClick={() => setRestoreRetry((v) => v + 1)}>다시 불러오기</button>
+            <Link to="/home" className="onb-btn onb-btn--outline">홈으로</Link>
+          </section>}
+      </main>
+    </div>
+  }
 
   return <div className="onb-page">
     <header className="onb-header"><Logo /><Progress stage={stage} /></header>
