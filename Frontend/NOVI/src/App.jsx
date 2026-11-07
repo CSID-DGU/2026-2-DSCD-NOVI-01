@@ -10,6 +10,7 @@ import TasteSettingsPage from './pages/TasteSettings/TasteSettingsPage.jsx'
 import TicketResultPage from './pages/TicketResult/TicketResultPage.jsx'
 import RequireAuth from './components/RequireAuth/RequireAuth.jsx'
 import DiaryWritePage from './pages/Diary/DiaryWritePage.jsx'
+import TicketDiaryRoute from './pages/Diary/TicketDiaryRoute.jsx'
 import TodaysPicksPage from './pages/TodaysPicks/TodaysPicksPage.jsx'
 import PickDetailPage from './pages/PickDetail/PickDetailPage.jsx'
 
@@ -30,6 +31,7 @@ import PickDetailPage from './pages/PickDetail/PickDetailPage.jsx'
             
             <Route path="/tickets" element={<MyTicketsPage />} />
             <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
+            <Route path="/tickets/:ticketId/diary" element={<TicketDiaryRoute />} />
             <Route path="/settings" element={<TasteSettingsPage />} />
             {/* 예전 북마크 링크는 새 My Tickets 저장 탭으로 연결합니다. */}
             <Route path="/bookmarks" element={<Navigate to="/tickets?tab=saved" replace />} />
