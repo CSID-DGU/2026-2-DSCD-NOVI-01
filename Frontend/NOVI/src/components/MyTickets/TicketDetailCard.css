@@ -8,7 +8,7 @@
 .mt-ticket-detail__data dt { color:#6e748b; }
 .mt-ticket-detail__data dd { margin:0; overflow-wrap:anywhere; }
 .mt-ticket-detail__action { display:flex; justify-content:flex-end; margin-top:auto; padding-top:28px; }
-.mt-diary-action { background:#6d59b6; border:1px solid #6d59b6; color:white; border-radius:40px; padding:13px 23px; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.mt-diary-action { display:inline-flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; background:#6d59b6; border:1px solid #6d59b6; color:white; border-radius:40px; padding:13px 23px; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
 .mt-diary-action.is-edit { background:white; border-color:#dcd8ec; color:#6554ac; }
 .mt-diary-action:hover { filter:brightness(.96); }
 .mt-ticket-detail__venue { border-left:2px dashed #d8cee9; background:#f1ecfc; padding:52px 26px; min-width:0; }

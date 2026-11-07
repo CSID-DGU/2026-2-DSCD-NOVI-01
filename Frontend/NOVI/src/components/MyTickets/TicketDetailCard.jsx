@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { CATEGORY_INFO } from '../../api/myTickets.js'
 import { formatDate } from './TicketCard.jsx'
 import TicketArtwork from './TicketArtwork.jsx'
@@ -14,8 +15,9 @@ function PersonLine({ label, values }) {
   )
 }
 
-/** 티켓 정보는 조회만 가능. 일기 작성/수정 UI는 일기 담당 팀원이 별도로 구현. */
 export default function TicketDetailCard({ ticket }) {
+  const hasDiary = Boolean(ticket.diary?.content?.trim())
+
   return (
     <section className="mt-ticket-detail" aria-label={`${ticket.title} 관람 티켓`}>
       <TicketArtwork ticket={ticket} />
@@ -33,6 +35,16 @@ export default function TicketDetailCard({ ticket }) {
           />
           <PersonLine label={ticket.category === 'exhibition' ? '주제' : '장르'} values={ticket.genres} />
         </dl>
+        <div className="mt-ticket-detail__action">
+          <Link
+            to={`/tickets/${encodeURIComponent(ticket.id)}/diary`}
+            className={`mt-diary-action${hasDiary ? ' is-edit' : ''}`}
+            aria-label={`${ticket.title} ${hasDiary ? '일기 수정하기' : '일기 추가하기'}`}
+          >
+            <span aria-hidden="true">✎</span>
+            {hasDiary ? '일기 수정하기' : '일기 추가하기'}
+          </Link>
+        </div>
       </div>
       <aside className="mt-ticket-detail__venue">
         <span>{ticket.category === 'movie' ? 'CINEMA' : 'VENUE'}</span>

@@ -63,7 +63,10 @@ export default function TicketResultPage({ manual = false, onRegister }) {
   const [fileName, setFileName] = useState(() => incomingFile?.name ?? location.state?.ticketImageName ?? '')
   const [ticketImageFile, setTicketImageFile] = useState(() => incomingFile)
   const [imagePreviewUrl, setImagePreviewUrl] = useState('')
-  const [matchedWorkId, setMatchedWorkId] = useState(() => incoming?.id ?? incoming?.work_id ?? null)
+  const [matchedWorkId, setMatchedWorkId] = useState(() => {
+    const candidate = incoming?.work_id ?? incoming?.id
+    return /^(movie|musical|play|exhibition):[1-9]\d*$/.test(String(candidate ?? '')) ? String(candidate) : null
+  })
   const [votes, setVotes] = useState({})
   const [notice, setNotice] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -142,20 +145,17 @@ export default function TicketResultPage({ manual = false, onRegister }) {
     const makeRatings = (type, values) => values.map((value) => ({
       value, preference: getVote('ticket-editing', type, value),
     }))
+    // Django ticket_api_views._clean()이 허용하는 저장 필드만 보냅니다.
+    // work_id는 검색·상세 API의 'movie:123' 형식이며, item_id가 아닙니다.
     return {
-      record_type: 'history',
       category: ticket.category,
-      work_id: matchedWorkId,
+      ...(matchedWorkId ? { work_id: matchedWorkId } : {}),
       title: ticket.title.trim(),
-      viewed_at: ticket.viewedAt || null, // YYYY-MM-DD만 저장
+      viewed_at: ticket.viewedAt || null, // YYYY-MM-DD
       venue: ticket.venue.trim(),
-      image_url: ticket.imageUrl, // 작품 DB 포스터 주소 (원본 티켓 사진과 구분)
-      genres: preferenceWork.genres,
-      actors: preferenceWork.actors,
-      directors: preferenceWork.directors,
       genre_ratings: makeRatings('genre', preferenceWork.genres),
-      director_ratings: makeRatings('director', preferenceWork.directors),
       actor_ratings: makeRatings('actor', preferenceWork.actors),
+      director_ratings: makeRatings('director', preferenceWork.directors),
     }
   }
 
@@ -227,7 +227,7 @@ export default function TicketResultPage({ manual = false, onRegister }) {
             matchedWorkId={matchedWorkId}
           />
           <div className="tt-ticket-result__receipt-help">
-            <span>✎ 작품 제목에 두 글자 이상 입력하면 아래에 DB 검색 결과가 표시돼요. 작품을 선택한 후에도 항목을 수정할 수 있어요.</span>
+            <span>✎ 작품 제목을 검색해 DB 작품을 선택하면 포스터를 연결할 수 있어요. 선택하지 않아도 수기 등록은 가능해요.</span>
           </div>
 
           <section className="tt-ticket-result__preferences" aria-labelledby="tt-ticket-preference-title">
@@ -249,7 +249,7 @@ export default function TicketResultPage({ manual = false, onRegister }) {
               {submitting ? '처리 중...' : '티켓 등록하기'}
             </button>
           </div>
-          <p className="tt-ticket-result__disclaimer">* 작품 DB와 매칭해 등록하면 포스터 및 작품 고유 ID도 함께 저장됩니다. OCR 자동 인식은 아직 별도 API 연결이 필요합니다.</p>
+          <p className="tt-ticket-result__disclaimer">* DB 검색 결과에서 작품을 선택하면 작품 고유 번호가 저장되어 포스터가 표시됩니다. OCR 자동 인식은 별도 API 연결이 필요합니다.</p>
         </main>
       </div>
     </div>
