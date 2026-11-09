@@ -50,9 +50,9 @@ export default function MyTicketsPage() {
       <div className="mt-header-area"><div><h1>My Tickets</h1><p>지나온 문화생활을 모아보세요</p></div></div>
       <div className="mt-tabs" role="tablist" aria-label="My Tickets 탭">
         <button type="button" role="tab" aria-selected={tab==='records'} className={tab==='records'?'is-active':''}
-          onClick={()=>setSearchParams({ tab:'records' })}><span aria-hidden="true">▣</span> 관람 기록</button>
+          onClick={()=>setSearchParams({ tab:'records' })}><span aria-hidden="true"></span> 관람 기록</button>
         <button type="button" role="tab" aria-selected={tab==='saved'} className={tab==='saved'?'is-active':''}
-          onClick={()=>setSearchParams({ tab:'saved' })}><span aria-hidden="true">♧</span> 저장한 작품</button>
+          onClick={()=>setSearchParams({ tab:'saved' })}><span aria-hidden="true"></span> 저장한 작품</button>
       </div>
       {tab === 'saved' ? <div role="tabpanel" aria-label="저장한 작품"><BookmarksPage embedded /></div> : <div role="tabpanel" aria-label="관람 기록">
         {location.state?.ticketSaved && <p className="mt-success" role="status">티켓이 저장되었어요.</p>}

@@ -1,45 +1,41 @@
-import { getMockPickDetail } from '../pages/PickDetail/mockPickDetail.js'
+import { apiRequest } from './auth.js'
 
-// api 구현 전
-// const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
-
-const fakeDelay = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms))
-
-// 🚧 GET /api/picks/{pickId}
-export async function getPickDetail(pickId) {
-  // const res = await fetch(`${API_BASE}/api/picks/${encodeURIComponent(pickId)}`, { credentials: 'include' })
-  // if (res.status === 404) return null
-  // if (!res.ok) throw new Error('작품 정보를 불러오지 못했어요.')
-  // return res.json()
-  await fakeDelay()
-  return getMockPickDetail(pickId)
+function toPickDetail(d) {
+  return {
+    id: d.item_id,
+    itemId: d.item_id,
+    category: d.category,
+    title: d.title,
+    posterUrl: d.image_url || '',
+    genres: Array.isArray(d.genres) ? d.genres : [],
+    actors: Array.isArray(d.actors) ? d.actors : [],
+    directors: Array.isArray(d.directors) ? d.directors : [],
+    venue: d.venue || '',
+    synopsis: d.plot || '',
+    startDate: d.date ?? undefined,
+    endDate: d.end_date ?? undefined,
+    bookmarked: Boolean(d.bookmarked),
+    response: d.response ?? null,
+    reason: '',
+    reasonDetail: '',
+  }
 }
 
-// 🚧 POST /api/picks/{pickId}/response  body { "response": "want" | "not_interested" }
-export async function sendPickResponse(pickId, response) {
-  // const res = await fetch(`${API_BASE}/api/picks/${encodeURIComponent(pickId)}/response`, {
-  //   method: 'POST',
-  //   credentials: 'include',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({ response }),
-  // })
-  // if (!res.ok) throw new Error('응답을 저장하지 못했어요.')
-  await fakeDelay(150)
-  return { pickId, response }
+export async function getPickDetail(itemId) {
+  try {
+    const data = await apiRequest(`/api/picks/${encodeURIComponent(itemId)}`)
+    return toPickDetail(data)
+  } catch (err) {
+    if (err.status === 404) return null
+    throw err
+  }
 }
 
-// 🚧 POST /api/bookmarks  body { "item_id": "..." } / DELETE /api/bookmarks/{item_id}
-export async function setBookmark(itemId, bookmarked) {
-  // const res = await fetch(
-  //   bookmarked ? `${API_BASE}/api/bookmarks` : `${API_BASE}/api/bookmarks/${encodeURIComponent(itemId)}`,
-  //   {
-  //     method: bookmarked ? 'POST' : 'DELETE',
-  //     credentials: 'include',
-  //     headers: { 'Content-Type': 'application/json' },
-  //     body: bookmarked ? JSON.stringify({ item_id: itemId }) : undefined,
-  //   },
-  // )
-  // if (!res.ok) throw new Error('저장하지 못했어요.')
-  await fakeDelay(150)
-  return { itemId, bookmarked }
+export function sendPickResponse(itemId, response) {
+  return apiRequest(`/api/picks/${encodeURIComponent(itemId)}/response`, { method: 'POST', body: { response } })
+}
+
+export function setBookmark(itemId, bookmarked) {
+  if (bookmarked) return apiRequest('/api/bookmarks', { method: 'POST', body: { item_id: itemId } })
+  return apiRequest(`/api/bookmarks/${encodeURIComponent(itemId)}`, { method: 'DELETE' })
 }

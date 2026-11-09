@@ -120,6 +120,8 @@
   text-overflow: ellipsis;
 }
 .tt-pick-card__reason--explore { background: #dceaf8; color: #2f3f78; }
+.tt-pick-card__reason--person { background: #dceaf8; color: #2f3f78; }
+
 
 @media (prefers-reduced-motion: reduce) {
   .tt-pick-card__poster,
@@ -127,4 +129,18 @@
   .tt-pick-card__fallback-title,
   .tt-pick-card__body,
   .tt-pick-card__title { transition: none; }
+}
+
+.tt-pick-card__body { min-width: 0; }
+.tt-pick-card__title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tt-pick-card__fallback-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }

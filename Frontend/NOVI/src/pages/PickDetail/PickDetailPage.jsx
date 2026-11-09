@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import AppHeader from '../../components/AppHeader/AppHeader.jsx'
 import { getPickDetail, sendPickResponse, setBookmark } from '../../api/picks.js'
-import { formatEndDate } from '../../utils/formatEndDate.js'
+import { formatPeriod } from '../../utils/formatEndDate.js'
 import './PickDetailPage.css'
 
 const CATEGORY_LABELS = { movie: '영화', musical: '뮤지컬', play: '연극', exhibition: '전시' }
@@ -142,8 +142,8 @@ export default function PickDetailPage() {
 
               <span className="tt-pick-detail__category">{CATEGORY_LABELS[work.category]}</span>
               <h1 className="tt-pick-detail__title">{work.title}</h1>
-              {formatEndDate(work.endDate) && <p className="tt-pick-detail__date">{formatEndDate(work.endDate)}</p>}
-
+            
+              {formatPeriod(work.startDate, work.endDate) && <p className="tt-pick-detail__date">{formatPeriod(work.startDate, work.endDate)}</p>}
               <dl className="tt-pick-detail__rows">
                 {buildRows(work).map(({ label, value }) => (
                   <div key={label} className="tt-pick-detail__row">

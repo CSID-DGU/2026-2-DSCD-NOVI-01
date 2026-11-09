@@ -78,7 +78,7 @@ export default function PickCard({ work, featured = false, onHover }) {
           </dl>
         )}
         {work.reason && (
-          <span className={`tt-pick-card__reason ${work.reasonType === 'explore' ? 'tt-pick-card__reason--explore' : ''}`}>
+          <span className={`tt-pick-card__reason ${work.reasonType === 'explore' || work.reasonType === 'person' ? `tt-pick-card__reason--${work.reasonType}` : ''}`}>
             {work.reason}
           </span>
         )}
@@ -98,7 +98,7 @@ PickCard.propTypes = {
     directors: PropTypes.arrayOf(PropTypes.string),
     actors: PropTypes.arrayOf(PropTypes.string),
     reason: PropTypes.string,
-    reasonType: PropTypes.oneOf(['taste', 'explore']),
+    reasonType: PropTypes.oneOf(['taste', 'explore', 'person']),
   }).isRequired,
   featured: PropTypes.bool,
   onHover: PropTypes.func,
