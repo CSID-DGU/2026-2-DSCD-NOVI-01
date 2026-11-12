@@ -6,6 +6,8 @@ import UploadOption from '../../components/UploadOption/UploadOption.jsx'
 import ArrowCircle from '../../components/ui/ArrowCircle.jsx'
 import './HomePage.css'
 import WorksSection from '../../components/WorksSection/WorksSection.jsx'
+import RecommendationEvaluationModal from '../../components/evaluation/RecommendationEvaluationModal.jsx'
+import { evaluationDemoData } from '../../components/evaluation/evaluationDemoData.js'
 
 /** 05_Home.svg - 서비스 메인 */
 export default function HomePage() {
@@ -14,6 +16,25 @@ export default function HomePage() {
   const fileRef = useRef(null)
   const [selectedFile, setSelectedFile] = useState(null)
   const [fileMessage, setFileMessage] = useState('')
+  // 온보딩을 저장하고 들어온 사용자에게 1회 표시. URL의 ?evaluation=preview 로도 테스트 가능.
+  const [evaluationOpen, setEvaluationOpen] = useState(() => {
+    const pending = sessionStorage.getItem('novi-evaluation-pending-v1') === '1'
+    const preview = new URLSearchParams(window.location.search).get('evaluation') === 'preview'
+    return pending || preview
+  })
+  const [evaluationNotice, setEvaluationNotice] = useState('')
+
+  function closeEvaluation(message = '') {
+    sessionStorage.removeItem('novi-evaluation-pending-v1')
+    setEvaluationOpen(false)
+    setEvaluationNotice(message)
+  }
+
+  function submitEvaluationPreview(payload) {
+    // 시연 모드: 실제 평가로 집계되지 않습니다. 서버 저장 API 연결 전까지 로컬 세션에만 기록합니다.
+    sessionStorage.setItem('novi-evaluation-last-preview-v1', JSON.stringify(payload))
+    closeEvaluation('평가 화면 시연이 완료되었어요. 실제 평가 데이터는 아직 서버에 저장되지 않습니다.')
+  }
 
   function handleFileChange(event) {
     const file = event.target.files?.[0]
@@ -95,6 +116,21 @@ export default function HomePage() {
 
       {/* 실제 작품 DB 목록 */}
       <WorksSection />
+
+      {evaluationNotice && (
+        <div className="tt-eval-home-notice" role="status">
+          <span>{evaluationNotice}</span>
+          <button type="button" onClick={() => setEvaluationNotice('')} aria-label="안내 닫기">×</button>
+        </div>
+      )}
+
+      <RecommendationEvaluationModal
+        open={evaluationOpen}
+        recommendations={evaluationDemoData}
+        previewMode
+        onSubmit={submitEvaluationPreview}
+        onSkip={() => closeEvaluation()}
+      />
 
     </div>
   )

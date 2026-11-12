@@ -215,7 +215,12 @@ function OnboardingPage() {
         }
       }),
     }
-    try { await saveOnboarding(payload); navigate('/home') }
+    try {
+      await saveOnboarding(payload)
+      // 취향 작품 5개 저장이 성공한 뒤에만 메인 화면에서 평가 시연 팝업을 엽니다.
+      sessionStorage.setItem('novi-evaluation-pending-v1', '1')
+      navigate('/home')
+    }
     catch (err) { setSaveError(err.message) }
     finally { setSaving(false) }
   }
