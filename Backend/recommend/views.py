@@ -1,4 +1,4 @@
-"""추천 API. 추천 조회는 DB에 쓰지 않고, 추천 응답은 "관심 없어요"만 저장한다."""
+"""추천 API. 추천 조회는 사용자별 마지막 결과(RecommendationRun)만 저장하고, 추천 응답은 "관심 없어요"만 저장한다."""
 from django.views.decorators.http import require_GET, require_POST
 
 from users.api_views import _body, _json, login_required_json
@@ -10,12 +10,12 @@ from . import services
 @require_GET
 @login_required_json
 def recommendations(request):
-    """GET /api/recommendations"""
+    """GET /api/recommendations. 입력이 그대로면 저장한 추천을 다시 보여 준다 (services.get_recommendations)"""
     try:
-        result = services.recommend_for_user(request.user)
+        run, refresh = services.get_recommendations(request.user)
     except ValueError as e:   # 인생작이 없거나 모두 모델이 모르는 작품
         return _json({'message': str(e)}, status=400)
-    return _json(services.to_api(result))
+    return _json(services.to_api(run.result, refresh, run.generated_at))
 
 
 @require_GET
