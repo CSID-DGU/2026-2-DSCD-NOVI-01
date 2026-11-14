@@ -164,3 +164,6 @@ cython_debug/
 #.idea/
 # 새벽 작업 스크립트·로그 (작품 데이터는 공유 DB에 있음)
 data/
+
+# 배포 시 collectstatic 결과
+staticfiles/

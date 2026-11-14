@@ -24,13 +24,28 @@ load_dotenv(BASE_DIR / '.env')
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
+# 배포 서버는 Backend/.env에 DJANGO_* 값을 넣는다 (키 목록은 Backend/deploy/README.md).
+# 값이 없으면 지금까지처럼 개발용으로 동작한다.
+def _env_list(name, default=''):
+    return [v.strip() for v in os.getenv(name, default).split(',') if v.strip()]
+
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-l_99pe5p#bk(-td7z7i-hz7lnsh4vqaiknhjn^nc3n&fc(*ufj'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-l_99pe5p#bk(-td7z7i-hz7lnsh4vqaiknhjn^nc3n&fc(*ufj')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = _env_list('DJANGO_ALLOWED_HOSTS', '*')
+
+# 프론트와 같은 주소로 서비스하면 비워 둬도 된다. 다른 주소에서 POST가 오면 'https://도메인' 형식으로 넣는다
+CSRF_TRUSTED_ORIGINS = _env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
+
+# 도메인에 HTTPS(Let's Encrypt)를 붙인 뒤 True로 바꾼다. nginx가 X-Forwarded-Proto를 넘겨준다
+if os.getenv('DJANGO_HTTPS', 'False') == 'True':
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 
 # Application definition
@@ -130,6 +145,7 @@ USE_TZ = False
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'   # 배포 시 collectstatic으로 관리자 페이지 CSS를 모은다 (nginx가 서비스)
 
 
 # Email
