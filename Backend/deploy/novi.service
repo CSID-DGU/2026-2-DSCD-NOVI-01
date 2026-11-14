@@ -1,0 +1,25 @@
+# /etc/systemd/system/novi.service 로 복사해서 쓴다 (README.md 7단계)
+# Django를 gunicorn으로 상시 실행한다. 서버가 재부팅되거나 프로세스가 죽어도 다시 켠다.
+
+[Unit]
+Description=NOVI Django (gunicorn)
+After=network.target postgresql.service
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/srv/novi/Backend
+# 추천 엔진(torch)은 worker(프로세스)마다 메모리에 따로 올라간다.
+# t3.small(2GB)은 PostgreSQL까지 같이 돌아서 worker 1개 + thread 4개로 동시 요청을 받는다.
+# t3.medium(4GB) 이상으로 올리면 --workers 2로 늘려도 된다.
+# 첫 추천 때 DB에서 엔진 파일을 꺼내 불러오느라 오래 걸려서 timeout을 120초로 둔다
+ExecStart=/srv/novi/Backend/venv/bin/gunicorn NOVI.wsgi:application \
+    --bind 127.0.0.1:8000 \
+    --workers 1 --threads 4 \
+    --timeout 120 \
+    --access-logfile - --error-logfile -
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
