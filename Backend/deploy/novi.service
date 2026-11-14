@@ -9,10 +9,12 @@ After=network.target postgresql.service
 User=ubuntu
 Group=ubuntu
 WorkingDirectory=/srv/novi/Backend
+# 서버가 켜지면 추천 엔진을 뒤에서 미리 불러 둔다 (recommend/apps.py). 첫 추천 요청이 약 90초 기다리지 않게 한다
+Environment=RECOMMEND_WARMUP=1
 # 추천 엔진(torch)은 worker(프로세스)마다 메모리에 따로 올라간다.
 # t3.small(2GB)은 PostgreSQL까지 같이 돌아서 worker 1개 + thread 4개로 동시 요청을 받는다.
 # t3.medium(4GB) 이상으로 올리면 --workers 2로 늘려도 된다.
-# 첫 추천 때 DB에서 엔진 파일을 꺼내 불러오느라 오래 걸려서 timeout을 120초로 둔다
+# 미리 불러오는 중(켜진 뒤 약 90초)에 들어온 추천 요청은 엔진이 다 뜰 때까지 기다려서 timeout을 120초로 둔다
 ExecStart=/srv/novi/Backend/venv/bin/gunicorn NOVI.wsgi:application \
     --bind 127.0.0.1:8000 \
     --workers 1 --threads 4 \
