@@ -16,6 +16,7 @@
 | `nginx-novi.conf` | nginx 설정 → `/etc/nginx/sites-available/novi` |
 | `novi.service` | gunicorn 상시 실행 → `/etc/systemd/system/novi.service` |
 | `update.sh` | 코드 업데이트 후 다시 배포 |
+| `daily.sh` | 새벽 작업 (cron, 매일 01:00) — 10단계 |
 
 서버 경로는 `/srv/novi`(저장소 전체)로 고정한다. 바꾸려면 위 세 파일의 경로도 같이 바꾼다.
 
@@ -35,7 +36,7 @@ AWS 계정 주인 한 명이 만들고, 팀원에게는 **`.pem` 키 파일만**
    | 키 페어 | **새 키 페어 생성** → 이름 `novi-key`, 유형 **ED25519**, 형식 **.pem** → 내려받은 파일 보관 (다시 받을 수 없음) |
    | 네트워크 설정 → 편집 | 보안 그룹 생성 (이름 `novi-sg`). 규칙은 아래 표 |
    | 퍼블릭 IP 자동 할당 | 활성화 (4단계에서 탄력적 IP로 바꾼다) |
-   | 스토리지 | **30 GiB gp3** (DB 약 2GB + torch 약 1GB + 스왑 2GB + 여유) |
+   | 스토리지 | **30 GiB gp3** (DB 약 2GB + torch 약 1GB + 스왑 4GB + 여유) |
    | 고급 세부 정보 → 종료 방지 | **활성화** — 콘솔에서 실수로 "종료"를 눌러 DB째 날리는 것을 막는다 |
 
    보안 그룹 인바운드 규칙
@@ -84,8 +85,8 @@ ssh -i .\novi-key.pem ubuntu@<탄력적IP>
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y git nginx python3.12-venv python3-pip
 
-# 스왑 2GB — t3.small(2GB)은 torch + PostgreSQL + 프론트 빌드를 같이 하면 메모리가 모자라 프로세스가 강제 종료된다
-sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+# 스왑 4GB — t3.small(2GB)은 추천 엔진 + PostgreSQL + 새벽 작업(임베딩)이 겹치면 스왑을 2GB 넘게 쓴다 (2026-11-14 측정 2.17GB)
+sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile
 sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
@@ -183,9 +184,14 @@ pip install -r requirements.txt
 pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
 pip install -r recommend/requirements_recommend.txt
 pip install --no-deps recbole==1.0.1
+
+# 새 작품 임베딩(새벽 작업 마지막 단계 recommend_embed_new)용 — requirements_recommend.txt의 4번
+pip install transformers==4.57.6 sentence-transformers==5.7.0 faiss-cpu==1.15.1 numpy==1.26.4
 ```
 
-`Backend/.env`를 만든다 (`nano .env`).
+`pip check`가 recbole 버전 충돌을 알리는데, recbole은 일부러 `--no-deps`로 설치해서 그렇다. 무시해도 된다 (2026-11-14 엔진·새벽 작업 모두 정상 확인).
+
+`Backend/.env`를 만든다 (`nano .env`). `umask 077` 같은 권한 설정을 바꾼 채로 아래 `collectstatic`을 돌리면 nginx가 관리자 CSS를 못 읽는다(403). 그때는 `chmod -R a+rX staticfiles`.
 
 ```
 DB_NAME=novi
@@ -211,7 +217,7 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"   # DJANGO_SECRET_K
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | 같은 주소로 서비스하면 비워 둔다 |
 | `DJANGO_HTTPS` | HTTPS를 붙인 뒤 `True` (9단계) |
 
-수집 API 키(TMDB·KOPIS 등)는 서버에서 수집 명령을 돌릴 때만 넣는다.
+새벽 작업(10단계)에 쓰는 수집 키 8개도 같은 `.env`에 넣는다: `KOPIS_API_KEY`, `CULTURE_API_KEY`, `SEOUL_API_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `GROQ_API_KEY`, `GROQ_MODEL`, `TMDB_API_KEY`. 값은 박서현에게 1:1로 받는다.
 
 ```bash
 python manage.py migrate            # 팀 DB에 아직 반영 안 된 마이그레이션이 있으면 여기서 들어간다
@@ -251,13 +257,15 @@ sudo systemctl status novi           # active (running) 확인
 
 로그 보기: `journalctl -u novi -f`
 
+서비스가 켜지면 추천 엔진을 뒤에서 미리 불러온다 (`novi.service`의 `RECOMMEND_WARMUP=1` → `recommend/apps.py`). t3.small에서 약 90초 걸리고, 최대 메모리는 약 1.65GB다. 다 불러오면 로그에 `추천 엔진 미리 불러옴`이 찍힌다. 그 전에 들어온 추천 요청은 다 불러올 때까지 기다린다.
+
 ---
 
 ## 8. 확인
 
 브라우저에서 `http://<탄력적IP>` 접속 → 회원가입·로그인 → 추천 화면.
 
-- 첫 추천은 엔진을 불러오느라 수십 초 걸릴 수 있다. 그다음부터는 빠르다.
+- 서비스를 켠 직후 약 90초 안에 추천을 열면 엔진을 다 불러올 때까지 기다린다. 그다음부터는 1초 안에 나온다.
 - 502 Bad Gateway → gunicorn이 꺼져 있다. `journalctl -u novi -n 100`
 - 403 (CSRF) → `DJANGO_ALLOWED_HOSTS`에 접속한 주소가 있는지, 주소창 주소와 같은지 확인
 - 관리자 페이지 CSS가 깨짐 → `collectstatic` 다시 실행
@@ -278,6 +286,29 @@ HTTP로는 비밀번호가 암호화 없이 오간다. 시연 전에는 붙이�
 
 ---
 
+## 10. 새벽 작업 (cron)
+
+박서현 PC의 `data/daily.bat`(Windows 작업 스케줄러)을 서버로 옮긴 것이다 (2026-11-14). 매일 새벽 1시에 `daily.sh`가 아래 8개를 순서대로 돌린다.
+
+`collect_performances --upcoming` → `collect_exhibitions` → `fill_plots` → `tag_genres` → `tag_moods` → `update_popularity` → `group_performances` → `recommend_embed_new`
+
+```bash
+sudo timedatectl set-timezone Asia/Seoul   # 서버 시간대를 한국 시간으로 (cron 시각·로그가 한국 시간이 된다)
+sudo apt install -y time                   # 단계별 최대 메모리 기록용 (/usr/bin/time)
+( crontab -l 2>/dev/null | grep -v 'daily.sh'
+  echo '0 1 * * * /bin/bash /srv/novi/Backend/deploy/daily.sh' ) | crontab -
+crontab -l
+```
+
+- 로그: `Backend/data/daily-날짜.log`. 단계마다 `[time] rc=0 max_mem=…KB`가 남는다. `rc`가 0이 아니면 그 단계가 실패한 것이다. 30일 지난 로그는 지운다.
+- 한 단계가 실패해도 다음 단계는 계속 돈다. 각 명령은 멈춘 곳부터 이어서 하고, API 하루 한도에 걸리면 알아서 멈춘다.
+- 전날 작업이 아직 돌고 있으면 겹쳐 돌리지 않는다 (`data/daily.lock`).
+- 손으로 돌릴 때: `bash /srv/novi/Backend/deploy/daily.sh`. SSH가 끊겨도 계속 돌게 하려면 `nohup setsid bash /srv/novi/Backend/deploy/daily.sh >/dev/null 2>&1 &`.
+- `recommend_embed_new`는 임베딩 모델(`intfloat/multilingual-e5-base`, 처음 실행 때 내려받음)과 새 엔진을 띄워서 메모리를 가장 많이 쓴다. 2026-11-14 첫 실행: 이 단계 최대 1.58GB, 이 단계 동안 서버 여유 메모리가 25MB까지 떨어지고 스왑을 2.17GB 썼다 (스왑 4GB라 강제 종료는 없음). 스왑을 4GB 밑으로 줄이지 않는다.
+- 새 엔진을 올리면 gunicorn이 5분 안에 알아채고 뒤에서 새 엔진으로 바꿔 끼운다 (`recommend/services.py`의 `_watch`).
+
+---
+
 ## 코드 업데이트
 
 upstream(`CSID-DGU`) main에 PR이 합쳐진 뒤 서버에서:
@@ -286,12 +317,12 @@ upstream(`CSID-DGU`) main에 PR이 합쳐진 뒤 서버에서:
 bash /srv/novi/Backend/deploy/update.sh
 ```
 
-`git pull` → 패키지 → `migrate` → `collectstatic` → gunicorn 재시작 → 프론트 다시 빌드까지 한다.
+`git pull` → 패키지 → `migrate` → `collectstatic` → 프론트 다시 빌드 → 서버 설정 반영(`novi.service`, nginx, cron 줄) → gunicorn 재시작까지 한다. 재시작 뒤 약 90초 동안은 엔진을 다시 불러온다.
 
 ---
 
 ## 배포 후 남은 결정 (팀)
 
-- **두 DB가 따로 움직인다.** 덤프를 뜬 뒤로 팀 DB(박서현 PC)에 들어간 작품 수집·태깅(`daily.bat`)과 새 엔진 파일(`recommend_embed_new`)은 배포 DB에 들어가지 않는다.
-  <!-- TODO: 새벽 작업을 배포 DB로 돌릴지, 배포 DB를 기준 DB로 바꿀지 팀 결정 (박서현) -->
+- 개발용 DB: EC2 DB는 서비스 전용으로 두고, 박서현 PC DB를 개발용으로 남길지 팀에서 정한다 (Backend/CLAUDE.md).
 - 배포 DB의 회원 데이터는 팀 DB 테스트 계정을 그대로 가져온 것이다. 시연 전에 정리할지 정한다.
+- HTTPS(9단계)는 도메인이 정해지면 붙인다.

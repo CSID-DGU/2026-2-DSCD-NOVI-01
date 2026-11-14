@@ -28,7 +28,8 @@
 ├── Backend/          # Django 백엔드
 │   ├── NOVI/         # Django 프로젝트 설정 (settings.py 등)
 │   ├── works/        # 작품(영화·뮤지컬·연극·전시) 모델, 수집·태깅 명령어
-│   ├── data/         # 새벽 작업 스크립트(daily.bat)와 로그 (git에 올리지 않음)
+│   ├── deploy/       # EC2 배포 설정·순서(README), 새벽 작업 스크립트(daily.sh)
+│   ├── data/         # 새벽 작업 로그 (git에 올리지 않음)
 │   ├── manage.py
 │   ├── requirements.txt
 │   └── .env          # 실제 키·DB 접속 정보 (git에 올리지 않음)
@@ -47,10 +48,13 @@ python manage.py test
 ```
 
 - DB 접속 정보는 `.env`에서 읽는다. SQLite는 쓰지 않는다.
-- **작품 DB는 박서현 PC의 PostgreSQL 하나를 팀 전체가 같이 쓴다** (2026-10-30). 팀원은 Tailscale로 접속한다 (`DB_HOST`=박서현 PC의 Tailscale IP).
-  - 그래서 `migrate`는 박서현만 한다. 모델을 바꿀 때는 팀에 먼저 알린다.
-  - 작품 데이터는 지금 DB에 있는 것이 최종본이다. CSV로 내보내거나 나눠 갖지 않는다.
-- 새벽 작업: `data/daily.bat` (Windows 작업 스케줄러 "TicketTaka daily tagging")이 공연·전시 수집 → 줄거리 보충 → 장르·느낌 태깅 → 인기도 갱신 → 작품 묶기를 한다. 영화는 새로 수집하지 않고 인기도만 갱신한다.
+- **작품 DB는 배포 서버(AWS EC2 `DSCD`)의 PostgreSQL 18 하나가 최종본이다** (2026-11-14, 이전에는 박서현 PC DB). 서비스와 새벽 작업이 모두 이 DB를 쓴다.
+  - 박서현 PC DB를 2026-11-14 오후에 덤프해서 옮겼다. 그 뒤로 박서현 PC DB에는 새 작품이 들어가지 않는다.
+  - 5432 포트는 열지 않는다. 서버 안에서만 접속하고, 밖에서 볼 때는 SSH 터널을 쓴다. 접속 방법·배포 순서는 `deploy/README.md`.
+  - 배포 DB `migrate`는 배포할 때 `deploy/update.sh`가 한다. 모델을 바꿀 때는 팀에 먼저 알리고, 서버 작업(배포·migrate·DB) 전에는 단톡방에 말한다 (서버 계정 `ubuntu`를 같이 쓴다).
+  - 작품 데이터는 CSV로 내보내거나 나눠 갖지 않는다.
+  <!-- TODO: 개발용 DB를 박서현 PC DB로 남길지, EC2 DB를 SSH 터널로 같이 쓸지 팀 결정. 정해지면 팀원 .env의 DB_HOST 안내를 여기 적는다 -->
+- 새벽 작업: EC2 cron이 매일 01:00(서버 시간대 Asia/Seoul) `deploy/daily.sh`를 돌린다 (2026-11-14, 이전에는 박서현 PC `data/daily.bat`). 공연·전시 수집 → 줄거리 보충 → 장르·느낌 태깅 → 인기도 갱신 → 작품 묶기 → 새 작품 임베딩(`recommend_embed_new`). 영화는 새로 수집하지 않고 인기도만 갱신한다. 로그는 서버 `Backend/data/daily-날짜.log`.
 - 작품 이미지: `Work.image_url`·`Production.image_url` (2026-10-30, 프론트 요청). 영화 TMDB 포스터(w500) / 뮤지컬·연극 KOPIS 포스터 / 전시 문화공공데이터광장 `IMAGE_OBJECT`·서울시 `MAIN_IMG`. 새 작품은 수집할 때 같이 받고, 이미 있던 작품은 `fill_images`로 한 번 채웠다. 이미지는 주소만 저장하고 파일은 받지 않는다.
 - 환경 변수는 `.env` 하나로만 관리한다. (`.env.example`은 만들지 않음) 새 환경 변수를 추가하면 팀원에게 키 이름을 따로 알려 줄 것.
 
