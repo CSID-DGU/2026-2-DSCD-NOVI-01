@@ -263,7 +263,7 @@ sudo systemctl status novi           # active (running) 확인
 
 ## 8. 확인
 
-브라우저에서 `http://<탄력적IP>` 접속 → 회원가입·로그인 → 추천 화면.
+브라우저에서 `https://novi-dscd.duckdns.org` 접속 → 회원가입·로그인 → 추천 화면. (HTTPS를 붙이기 전이면 `http://<탄력적IP>`)
 
 - 서비스를 켠 직후 약 90초 안에 추천을 열면 엔진을 다 불러올 때까지 기다린다. 그다음부터는 1초 안에 나온다.
 - 502 Bad Gateway → gunicorn이 꺼져 있다. `journalctl -u novi -n 100`
@@ -272,17 +272,45 @@ sudo systemctl status novi           # active (running) 확인
 
 ---
 
-## 9. (선택) 도메인 + HTTPS
+## 9. 도메인 + HTTPS
 
-HTTP로는 비밀번호가 암호화 없이 오간다. 시연 전에는 붙이는 것을 권장한다.
+**주소: `https://novi-dscd.duckdns.org`** (2026-11-15). `http://`나 IP(`43.200.135.63`)로 들어와도 이 주소로 넘어간다.
 
-1. 도메인의 A 레코드를 탄력적 IP로 연결한다 (무료 도메인이면 DuckDNS 등).
-2. 서버:
-   ```bash
-   sudo apt install -y certbot python3-certbot-nginx
-   sudo certbot --nginx -d <도메인>
-   ```
-3. `.env`: `DJANGO_ALLOWED_HOSTS=<도메인>,<탄력적IP>`, `DJANGO_HTTPS=True` → `sudo systemctl restart novi`
+| 항목 | 값 |
+|---|---|
+| 도메인 | DuckDNS `novi-dscd` → 탄력적 IP `43.200.135.63` (duckdns.org에서 current ip를 바꾼다) |
+| 인증서 | Let's Encrypt, `/etc/letsencrypt/live/novi-dscd.duckdns.org/` |
+| 자동 갱신 | `certbot.timer`(하루 두 번 확인, 만료 30일 전에 갱신) → 갱신되면 nginx를 다시 불러온다 |
+| 갱신 방식 | webroot (`/var/www/letsencrypt`). certbot이 nginx 설정을 건드리지 않는다 |
+| 이메일 | 등록하지 않음 → 만료 알림 메일이 안 온다. 가끔 `sudo certbot certificates`로 남은 기간을 본다 |
+
+nginx 설정(`nginx-novi.conf`)에 HTTPS가 들어 있고, `update.sh`가 배포 때마다 그대로 복사한다. **`certbot --nginx`(설정 자동 수정)는 쓰지 않는다.** 다음 배포 때 저장소 설정으로 덮여 버린다.
+
+### 새 서버에 처음 설치할 때 (인증서 받기)
+
+`nginx-novi.conf`는 인증서 파일이 있어야 `nginx -t`가 통과한다. 6단계에서 nginx 설정을 복사하기 **전에** 인증서부터 받는다.
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo mkdir -p /var/www/letsencrypt
+# 6단계 전 nginx 기본 설정(80번)이 떠 있는 상태에서, 확인 파일을 nginx 기본 폴더로 받는다
+sudo certbot certonly --webroot -w /var/www/html -d novi-dscd.duckdns.org \
+  --agree-tos --register-unsafely-without-email -n --deploy-hook "systemctl reload nginx"
+# 그다음 6단계(nginx-novi.conf 복사). 이후 갱신 경로를 /var/www/letsencrypt로 바꾼다
+sudo sed -i 's#/var/www/html#/var/www/letsencrypt#g' /etc/letsencrypt/renewal/novi-dscd.duckdns.org.conf
+sudo certbot renew --dry-run          # "all simulated renewals succeeded" 확인
+```
+
+`.env`:
+
+```
+DJANGO_ALLOWED_HOSTS=43.200.135.63,novi-dscd.duckdns.org
+DJANGO_HTTPS=True
+```
+
+→ `sudo systemctl restart novi`. `DJANGO_HTTPS=True`면 로그인·CSRF 쿠키가 HTTPS에서만 오간다 (`Secure`). 그래서 HTTP로는 로그인이 안 된다. nginx가 HTTPS로 넘겨주므로 문제없다.
+
+도메인을 바꾸면 `nginx-novi.conf`의 `novi-dscd.duckdns.org` 네 곳, `.env`의 `DJANGO_ALLOWED_HOSTS`, 인증서를 같이 바꾼다.
 
 ---
 
@@ -317,7 +345,7 @@ upstream(`CSID-DGU`) main에 PR이 합쳐진 뒤 서버에서:
 bash /srv/novi/Backend/deploy/update.sh
 ```
 
-`git pull` → 패키지 → `migrate` → `collectstatic` → 프론트 다시 빌드 → 서버 설정 반영(`novi.service`, nginx, cron 줄) → gunicorn 재시작까지 한다. 재시작 뒤 약 90초 동안은 엔진을 다시 불러온다.
+`git pull` → 패키지 → `migrate` → `collectstatic` → 프론트 다시 빌드 → 서버 설정 반영(`novi.service`, nginx, cron 줄) → gunicorn 재시작까지 한다. 재시작 뒤 약 90초 동안은 엔진을 다시 불러온다. `update.sh` 자체가 바뀐 배포여도 받은 새 버전으로 처음부터 다시 실행하므로 한 번만 돌리면 된다.
 
 ---
 
@@ -325,4 +353,4 @@ bash /srv/novi/Backend/deploy/update.sh
 
 - 개발용 DB: EC2 DB는 서비스 전용으로 두고, 박서현 PC DB를 개발용으로 남길지 팀에서 정한다 (Backend/CLAUDE.md).
 - 배포 DB의 회원 데이터는 팀 DB 테스트 계정을 그대로 가져온 것이다. 시연 전에 정리할지 정한다.
-- HTTPS(9단계)는 도메인이 정해지면 붙인다.
+- HTTPS는 2026-11-15에 붙였다 (9단계).
