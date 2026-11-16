@@ -16,13 +16,27 @@ export default function HomePage() {
   const fileRef = useRef(null)
   const [selectedFile, setSelectedFile] = useState(null)
   const [fileMessage, setFileMessage] = useState('')
-  // 온보딩을 저장하고 들어온 사용자에게 1회 표시. URL의 ?evaluation=preview 로도 테스트 가능.
+  
+  // 인터리빙 평가 기능 활성화 여부
+  const EVALUATION_ENABLED =
+    import.meta.env.VITE_INTERLEAVING_ENABLED === 'true'
+
+  // 온보딩 완료 후 또는 테스트 URL로 접근했을 때 팝업 표시
   const [evaluationOpen, setEvaluationOpen] = useState(() => {
-    const pending = sessionStorage.getItem('novi-evaluation-pending-v1') === '1'
-    const preview = new URLSearchParams(window.location.search).get('evaluation') === 'preview'
+    if (!EVALUATION_ENABLED) return false
+
+    const pending =
+      sessionStorage.getItem('novi-evaluation-pending-v1') === '1'
+
+    const preview =
+      new URLSearchParams(window.location.search)
+        .get('evaluation') === 'preview'
+
     return pending || preview
   })
+
   const [evaluationNotice, setEvaluationNotice] = useState('')
+
 
   function closeEvaluation(message = '') {
     sessionStorage.removeItem('novi-evaluation-pending-v1')
