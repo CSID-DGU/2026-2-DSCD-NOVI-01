@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
 import AppHeader from '../../components/AppHeader/AppHeader.jsx'
 import { getPickDetail, sendPickResponse, setBookmark } from '../../api/picks.js'
 import { formatPeriod } from '../../utils/formatEndDate.js'
 import './PickDetailPage.css'
+import { Link, useLocation, useParams } from 'react-router-dom'
 
 const CATEGORY_LABELS = { movie: '영화', musical: '뮤지컬', play: '연극', exhibition: '전시' }
 const CATEGORY_EN = { movie: 'MOVIE', musical: 'MUSICAL', play: 'PLAY', exhibition: 'EXHIBITION' }
@@ -22,6 +22,8 @@ function buildRows(work) {
 
 export default function PickDetailPage() {
   const { pickId } = useParams()
+  const location = useLocation()
+  const passedReason = typeof location.state?.reason === 'string' ? location.state.reason : ''
   const [work, setWork] = useState(null)
   const [status, setStatus] = useState('loading')
   const [message, setMessage] = useState('')
@@ -39,7 +41,7 @@ export default function PickDetailPage() {
     getPickDetail(pickId)
       .then((data) => {
         if (ignore) return
-        setWork(data)
+        setWork(data ? { ...data, reason: data.reason || passedReason } : null)
         setStatus(data ? 'ready' : 'notFound')
       })
       .catch(() => {
@@ -48,9 +50,8 @@ export default function PickDetailPage() {
     return () => {
       ignore = true
     }
-  }, [pickId])
+  }, [pickId, passedReason])
 
-  // victory: 줄거리가 3줄을 넘을 때만 더보기 표시
   useLayoutEffect(() => {
     const el = synopsisRef.current
     if (!el || expanded) return

@@ -98,8 +98,12 @@ export default function PicksPanel({ category, categories, picks, getOrigin, onC
         <ul ref={listRef} key={category} className="tt-picks-panel__list">
           {picks.map((work) => (
               <li key={work.id} className="tt-picks-panel__item" data-pick-item>
-              <Link to={`/picks/${encodeURIComponent(work.id)}`} className="tt-picks-panel__link">
-                <PickCard work={work} />
+                <Link
+                  to={`/picks/${encodeURIComponent(work.id)}`}
+                  state={{ reason: work.reason }}
+                  className="tt-picks-panel__link"
+                >                
+                  <PickCard work={work} />
               </Link>
             </li>
           ))}
