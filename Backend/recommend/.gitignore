@@ -5,3 +5,5 @@
 third_party/
 # DB(ModelFile)에서 꺼낸 엔진 파일 캐시 (model_store.py)
 model_cache/
+# 설정값을 정한 실험 스크립트·결과. 저장소에는 정한 값을 반영한 서비스 코드(engine/settings.py)만 올린다
+experiments/

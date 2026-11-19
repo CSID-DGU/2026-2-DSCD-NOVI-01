@@ -1,4 +1,14 @@
-"""티켓타카 1단계: VQ-Rec(Hou 외, WWW 2023) 후보. 인생작 시퀀스 -> 카테고리별 상위 100편, 점수 0~1
+"""티켓타카 1단계: VQ-Rec(Hou 외, WWW 2023) 후보. 인생작 시퀀스 -> 카테고리별 후보, 점수 0~1
+
+후보 규칙 (2026-11-12, 근거: 실험 결과 (저장소에 올리지 않음))
+- 영화: 후보 풀 안에서 VQ-Rec 점수와 TMDB 인기도를 각각 백분위(1위 = 1, 꼴찌 = 0, 동점은 평균 순위)로 바꿔
+        섞은 점수 = (1 - w) x VQ-Rec 백분위 + w x 인기도 백분위, w = POPULARITY_WEIGHT(0.98). 섞은 점수 상위 100편
+        근거: 정확도와 개인화의 균형점 w = 0.98, VQ-Rec은 학습 데이터에 없던 영화를 거의 무작위로 놓는다
+- 뮤지컬·연극·전시: VQ-Rec 점수만, 자르지 않고 그날 진행 중인 작품 전부
+        근거: 진행 중 작품이 150~190편. 뮤지컬은 100편에서 목표 느낌 태그 포함 93%, 전부일 때 100%
+- score(0~1) = 줄 세운 점수(영화: 섞은 점수, 공연·전시: VQ-Rec 점수)를 후보 안에서 최소-최대로 바꾼 값. 2단계가 이 값에 가감점을 더한다
+  raw_score = VQ-Rec 원점수 그대로. 점수가 같으면 카탈로그 순서
+- 영화 카탈로그에 인기도 칸이 없으면(옛 엔진 파일) 영화도 VQ-Rec 점수만 쓰고 경고를 남긴다. 인기도가 빈 영화는 인기도 맨 아래
 
 kaggle_top100.ipynb(top100_score.py)의 계산을 서비스용으로 옮긴 것이다.
 - 모델은 공식 코드(RUCAIBox/VQ-Rec, 커밋 VQREC_COMMIT)의 VQRec 클래스를 쓴다
@@ -7,7 +17,7 @@ kaggle_top100.ipynb(top100_score.py)의 계산을 서비스용으로 옮긴 것�
 - 시퀀스 = 인생작을 기록한 순서 그대로 (VQ-Rec 입력 순서 검증에서 가장 좋았던 조건)
 후보: 영화 = 기준일까지 개봉한 영화(개봉일 없는 영화 포함), 연극·뮤지컬·전시 = 기준일에 진행 중(시작일 <= 기준일 <= 종료일).
       인생작·관람 기록은 뺀다.
-점수 0~1: 사용자 × 카테고리 상위 100편 안에서 최소-최대로 바꾸고 소수 넷째 자리로 반올림 (2단계 결과를 만든 1단계 CSV와 같은 형식)
+점수 0~1: 사용자 × 카테고리 후보 안에서 최소-최대로 바꾸고 소수 넷째 자리로 반올림 (2단계 결과를 만든 1단계 CSV와 같은 형식)
 
 모델을 불러오는 방식 (mode)
 - "recbole": 공식 finetune.py와 같은 순서 (RecBole Config -> 데이터셋 -> 모델 -> 가중치). Python 3.9 + RecBole 1.0.1
@@ -16,16 +26,22 @@ kaggle_top100.ipynb(top100_score.py)의 계산을 서비스용으로 옮긴 것�
 """
 import csv
 import json
+import logging
 import os
 import sys
 from pathlib import Path
 
 import numpy as np
 
+from .settings import CANDIDATE_LIMIT, POPULARITY_WEIGHT  # noqa: F401  (POPULARITY_WEIGHT: stage1.POPULARITY_WEIGHT로 읽는다)
+
+log =logging.getLogger(__name__)
+
 VQREC_COMMIT = "298184509f206df44bb1809895cbe5a5e4a7d7be"
 DATASET = "MovieShow"
 INDEX_SUFFIX = "OPQ32,IVF1,PQ32x8.index"   # 미세조정 가중치와 짝인 코드표
-TOP_N = 100
+# 카테고리별 후보 수(None = 후보 풀 전부)와 인기도 비중은 settings.py에서 정한다
+TOP_N = CANDIDATE_LIMIT
 CATS = ["영화", "뮤지컬", "연극", "전시"]
 CATALOG = [("movies.csv", "영화", "source_id"), ("musicals.csv", "뮤지컬", "code"),
            ("plays.csv", "연극", "code"), ("exhibitions.csv", "전시", "code")]
@@ -42,6 +58,28 @@ def in_pool(item, today):
     if item["category"] == "영화":
         return item["date"] <= today                      # 개봉일 없는 영화('')도 남는다
     return item["date"] != "" and item["date"] <= today <= item["end_date"]
+
+
+def percentile(values):
+    """큰 값이 위. 1위 = 1, 꼴찌 = 0. 동점끼리는 평균 순위로 같은 백분위 (카탈로그 순서가 점수에 섞이지 않게)
+    인기도 비중을 정한 실험(저장소에 올리지 않음)의 percentile과 같은 계산이다"""
+    values = np.asarray(values, dtype=np.float64)
+    n = len(values)
+    if n == 1:
+        return np.ones(1)
+    o = np.argsort(-values, kind="stable")
+    sv = values[o]
+    first = np.r_[True, sv[1:] != sv[:-1]]            # 동점 묶음이 시작하는 자리
+    starts = np.flatnonzero(first)
+    ends = np.r_[starts[1:], n]
+    rank = np.empty(n, dtype=np.float64)
+    rank[o] = ((starts + 1 + ends) / 2)[np.cumsum(first) - 1]   # 동점 묶음의 평균 순위 (1위부터)
+    return (n - rank) / (n - 1)
+
+
+def blend(vqrec_pct, popularity_pct, w):
+    """섞은 점수 = (1 - w) x VQ-Rec 백분위 + w x 인기도 백분위"""
+    return (1 - w) * vqrec_pct + w * popularity_pct
 
 
 class _Config(dict):
@@ -79,11 +117,25 @@ class Stage1:
         with torch.no_grad():   # full_sort_predict의 작품 쪽 계산 (요청마다 같다)
             self.item_emb = F.normalize(self.model.calculate_item_emb(), dim=-1)
 
+        self._load_catalog(A)
+
+    def _load_catalog(self, A):
+        """카탈로그 CSV를 읽는다. 인기도를 섞는 카테고리는 popularity 칸도 읽는다 (빈 칸 = None)"""
         self.catalog = {c: [] for c in CATS}
+        self.popularity_weight = {}   # 실제로 쓰는 인기도 비중. 카탈로그에 인기도 칸이 없으면 0 (VQ-Rec 점수만)
         for f, c, key in CATALOG:
-            for r in read_csv(A / "catalog" / f):
-                self.catalog[c].append({"item_id": r[key], "category": c, "title": r["title"], "genres": r["genres"],
-                                        "date": r["date"], "end_date": r.get("end_date", "")})
+            rows = read_csv(A / "catalog" / f)
+            if c in POPULARITY_WEIGHT:
+                has = bool(rows) and "popularity" in rows[0]
+                self.popularity_weight[c] = POPULARITY_WEIGHT[c] if has else 0.0
+                if not has:
+                    log.warning("%s 카탈로그(%s)에 popularity 칸이 없어 VQ-Rec 점수만으로 추천한다 (recommend_embed_new로 새 엔진 파일을 올려야 한다)", c, f)
+            for r in rows:
+                item = {"item_id": r[key], "category": c, "title": r["title"], "genres": r["genres"],
+                        "date": r["date"], "end_date": r.get("end_date", "")}
+                if c in POPULARITY_WEIGHT:
+                    item["popularity"] = float(r["popularity"]) if r.get("popularity") else None
+                self.catalog[c].append(item)
         missing = [x["item_id"] for v in self.catalog.values() for x in v if x["item_id"] not in self.col_of]
         assert not missing, f"코드가 없는 카탈로그 작품 {len(missing)}편: {missing[:5]}"
 
@@ -173,7 +225,9 @@ class Stage1:
         return s[self.score_cols].cpu().numpy()
 
     def candidates(self, life_ids, seen, today):
-        """카테고리별 후보 TOP_N. 반환 {카테고리: [{'rank', 'item_id', 'title', 'genres', 'raw_score', 'score'(0~1)}]}"""
+        """카테고리별 후보 (TOP_N편, None이면 후보 풀 전부). 줄 세우는 점수 = 영화는 섞은 점수, 공연·전시는 VQ-Rec 점수
+        반환 {카테고리: [{'rank', 'item_id', 'title', 'genres', 'raw_score'(VQ-Rec 원점수), 'score'(줄 세운 점수를 후보 안에서 0~1)}]}
+        인기도를 섞은 카테고리의 후보에는 'vqrec_pct', 'popularity_pct'(후보 풀 안 백분위)도 붙는다"""
         s = self.score(life_ids)
         seen = set(seen) | set(life_ids)
         out = {}
@@ -182,13 +236,24 @@ class Stage1:
             if not pool:
                 out[c] = []
                 continue
-            sc = s[[self.col_of[x["item_id"]] for x in pool]]
-            top = np.argsort(-sc)[:TOP_N]
-            raw = sc[top].astype(np.float64)
-            lo, hi = raw.min(), raw.max()
-            out[c] = [{"rank": r + 1, "item_id": pool[j]["item_id"], "title": pool[j]["title"], "genres": pool[j]["genres"],
-                       "raw_score": float(v), "score": round(float((v - lo) / (hi - lo)), 4) if hi > lo else 0.0}
-                      for r, (j, v) in enumerate(zip(top, raw))]
+            sc = s[[self.col_of[x["item_id"]] for x in pool]].astype(np.float64)
+            w = self.popularity_weight.get(c, 0.0)
+            if w:   # 인기도가 빈 작품은 인기도 맨 아래 (-inf끼리 같은 백분위)
+                vq_pct = percentile(sc)
+                pop_pct = percentile([x["popularity"] if x["popularity"] is not None else -np.inf for x in pool])
+                order = blend(vq_pct, pop_pct, w)
+            else:
+                order = sc
+            top = np.argsort(-order, kind="stable")[:TOP_N[c]]   # 점수가 같으면 카탈로그 순서
+            val = order[top]
+            lo, hi = val.min(), val.max()
+            out[c] = []
+            for r, (j, v) in enumerate(zip(top, val)):
+                row = {"rank": r + 1, "item_id": pool[j]["item_id"], "title": pool[j]["title"], "genres": pool[j]["genres"],
+                       "raw_score": float(sc[j]), "score": round(float((v - lo) / (hi - lo)), 4) if hi > lo else 0.0}
+                if w:
+                    row.update(vqrec_pct=round(float(vq_pct[j]), 6), popularity_pct=round(float(pop_pct[j]), 6))
+                out[c].append(row)
         return out
 
 
