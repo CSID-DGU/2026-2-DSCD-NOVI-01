@@ -21,11 +21,10 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 
+from .settings import BONUS, LAMBDA, PENALTY_RATIO  # noqa: F401  (값은 settings.py에서 정한다)
+
 csv.field_size_limit(10**9)
 
-LAMBDA = 0.3         # 균형 손잡이 λ: 0.3으로 고정 (최종 추천은 항상 이 값)
-BONUS = 0.1          # 기본 가점 크기. 실제 가점 = BONUS × 그 카테고리 요소 중요도
-PENALTY_RATIO = 1.0  # 감점 = 가점과 같은 크기
 ALPHA = 0.01         # 논문 미세 보정값
 TOP_N = 5            # 최종 추천 수 (카테고리별)
 TOP_ACTORS = 5       # 배우·출연진·작가는 앞 5명만 비교

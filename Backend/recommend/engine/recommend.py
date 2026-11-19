@@ -1,4 +1,5 @@
-"""티켓타카 취향 추천: 1단계 VQ-Rec 후보(카테고리별 100편) -> 2단계 Calibrated 재정렬(카테고리별 5편)
+"""티켓타카 취향 추천: 1단계 후보(영화 = VQ-Rec + 인기도 상위 100편, 공연·전시 = VQ-Rec으로 진행 중 작품 전부, stage1.py)
+-> 2단계 Calibrated 재정렬(카테고리별 5편)
 
 서버에서 쓰는 법
     from tickettaka_reco.recommend import Recommender, user_from_json
@@ -74,13 +75,17 @@ class Recommender:
         cands = self.stage1.candidates(life, seen, today)
         out = stage2.rerank(user, cands, self.res)
         recs = {c: [] for c in stage2.CATS}
+        # 추천 행의 vqrec_score = 1단계 score (영화는 섞은 점수, 공연·전시는 VQ-Rec 점수를 후보 안에서 0~1로 맞춘 값)
         for x in out["items"]:
             recs[x["category"]].append({k: x[k] for k in ["rank", "item_id", "title", "genres", "vqrec_score", "adj_score",
                                                            "adjust_notes", "pick_order", "feel_tags"]})
         return {"user_id": user.user_id, "today": today, "recommendations": recs, "summary": out["summary"],
                 "candidates": cands, "excluded_candidates": out["excluded"], "skipped_life_works": skipped,
                 "params": {"lambda": stage2.LAMBDA, "bonus": stage2.BONUS, "penalty_ratio": stage2.PENALTY_RATIO,
-                           "alpha": stage2.ALPHA, "top_n": stage2.TOP_N, "candidates_per_category": len(next(iter(cands.values()), [])),
+                           "alpha": stage2.ALPHA, "top_n": stage2.TOP_N,
+                           "candidates_per_category": {c: len(v) for c, v in cands.items()},   # 카테고리별 실제 1단계 후보 수
+                           # 1단계에서 실제로 쓴 인기도 비중. 카탈로그에 인기도 칸이 없어 섞지 못했으면 0
+                           "popularity_weight": dict(self.stage1.popularity_weight),
                            "vqrec_commit": VQREC_COMMIT}}
 
 

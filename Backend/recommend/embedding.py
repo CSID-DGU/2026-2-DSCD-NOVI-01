@@ -29,7 +29,7 @@ MODEL, PREFIX, MAX_TOKENS = 'intfloat/multilingual-e5-base', 'query: ', 512
 TEXT_FIELDS = ['title', 'genres', 'moods', 'plot']
 PLOT_CHARS = 1500
 PLM_SIZE = 768
-MOVIE_COLS = ['source_id', 'title', 'genres', 'actors', 'directors', 'date']
+MOVIE_COLS = ['source_id', 'title', 'genres', 'actors', 'directors', 'date', 'popularity']   # popularity: 1단계가 영화 후보에 섞는다 (그날 TMDB 인기도)
 SHOW_COLS = ['code', 'title', 'genres', 'actors', 'venue', 'date', 'end_date']
 SHOW_FILES = {'musical': 'musicals.csv', 'play': 'plays.csv', 'exhibition': 'exhibitions.csv'}
 
@@ -56,11 +56,16 @@ def _day(d):
     return d.isoformat() if d else ''
 
 
+def _number(v):
+    """인기도: 없으면 빈 칸, 0은 0으로 남긴다"""
+    return '' if v is None else repr(float(v))
+
+
 def db_catalog():
     """작품 DB → {item_id: 작품} (영화는 TMDB 번호, 공연·전시는 작품 번호). 카탈로그 칸과 임베딩 문장 칸을 함께 담는다"""
     items = {}
     for w in Work.objects.filter(category=Work.Category.MOVIE).order_by('id').values(
-            'source_id', 'title', 'genres', 'moods', 'plot', 'actors', 'directors', 'date'):
+            'source_id', 'title', 'genres', 'moods', 'plot', 'actors', 'directors', 'date', 'popularity'):
         items[w['source_id']] = dict(w, category='movie')
     for p in Production.objects.exclude(code=None).order_by('id').values(
             'code', 'category', 'title', 'genres', 'moods', 'plot', 'actors', 'venue', 'date', 'end_date'):
@@ -75,7 +80,8 @@ def write_catalog(items, out):
     for x in items.values():
         f = 'movies.csv' if x['category'] == 'movie' else SHOW_FILES[x['category']]
         cols, rows = files[f]
-        rows.append({c: '|'.join(x[c]) if isinstance(x[c], list) else (_day(x[c]) if c in ('date', 'end_date') else x[c] or '')
+        rows.append({c: '|'.join(x[c]) if isinstance(x[c], list) else (_day(x[c]) if c in ('date', 'end_date') else
+                                                                      _number(x[c]) if c == 'popularity' else x[c] or '')
                      for c in cols})
     for f, (cols, rows) in files.items():
         buf = io.StringIO(newline='')

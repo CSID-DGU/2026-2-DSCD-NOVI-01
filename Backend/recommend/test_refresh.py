@@ -43,6 +43,7 @@ class FakeStage1:
 
     def __init__(self, rows, extra_known=(), max_len=50, top_n=10):
         self.catalog, self.max_len, self.top_n, self.calls = rows, max_len, top_n, []
+        self.popularity_weight = {}   # 진짜 Stage1처럼 실제로 쓴 인기도 비중 (가짜는 섞지 않는다)
         self.seq_id = {x['item_id']: i for i, x in enumerate(x for v in rows.values() for x in v)}
         for x in extra_known:
             self.seq_id.setdefault(x, len(self.seq_id))
