@@ -25,3 +25,17 @@ typing_extensions==4.16.0
 tzdata==2026.4
 urllib3==2.8.0
 gunicorn==23.0.0
+# 티켓 OCR (ocr 앱): RapidOCR(PP-OCRv5 한국어). numpy는 위의 1.26.4를 그대로 쓴다 (opencv는 numpy 1.x와 맞는 4.10으로 고정)
+rapidocr==3.10.0
+onnxruntime==1.32.0
+opencv-python-headless==4.10.0.84
+pyclipper==1.4.0
+shapely==2.2.0
+omegaconf==2.4.0
+PyYAML==6.0.3
+colorlog==6.12.0
+six==1.17.0
+tqdm==4.70.1
+flatbuffers==25.12.19
+packaging==26.3
+protobuf==7.36.2

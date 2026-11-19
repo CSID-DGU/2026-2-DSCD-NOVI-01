@@ -22,4 +22,5 @@ urlpatterns = [
     path("api/", include("works.api_urls")),
     path("api/", include("users.api_urls")),
     path("api/", include("recommend.urls")),
+    path("api/", include("ocr.urls")),
 ]

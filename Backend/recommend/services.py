@@ -136,7 +136,10 @@ def run_engine(engine, user, today):
             'skipped_life_works': skipped_life, 'skipped_history': skipped_hist,
             'params': {'lambda': stage2.LAMBDA, 'bonus': stage2.BONUS, 'penalty_ratio': stage2.PENALTY_RATIO,
                        'alpha': stage2.ALPHA, 'top_n': stage2.TOP_N,
-                       'candidates_per_category': len(next(iter(cands.values()), [])), 'stage1_input': 'life_work+history',
+                       'candidates_per_category': {c: len(v) for c, v in cands.items()},   # 카테고리별 실제 1단계 후보 수
+                       # 1단계에서 실제로 쓴 인기도 비중. 엔진 파일에 인기도 칸이 없어 섞지 못했으면 0
+                       'popularity_weight': dict(engine.stage1.popularity_weight),
+                       'stage1_input': 'life_work+history',
                        'vqrec_commit': VQREC_COMMIT}}
 
 

@@ -1,9 +1,14 @@
+import csv
+import tempfile
+from pathlib import Path
+
+import numpy as np
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
 
-from recommend import services
-from recommend.engine import stage2
-from recommend.engine.recommend import user_from_json
+from recommend import embedding, services
+from recommend.engine import settings, stage1, stage2
+from recommend.engine.recommend import Recommender, user_from_json
 from users.models import Bookmark, NotInterested, UserSurvey, UserWork
 from works.models import Production, Work
 
@@ -179,3 +184,201 @@ class NotInterestedInputTests(PickTestCase):
         NotInterested.objects.all().delete()
         without_record = stage2.prepare_user(user_from_json(services.build_input(self.user)), res)
         self.assertEqual(with_record, without_record)
+
+
+# ---------- 1단계 후보 규칙 (영화 = VQ-Rec + 인기도 상위 100편, 공연·전시 = 진행 중 작품 전부) ----------
+TODAY = '2026-11-12'
+
+
+def fake_stage1(n_movies=150, n_shows=120, popularity=True, seed=0):
+    """모델 없이 candidates만 시험하는 Stage1. 점수는 고정된 난수 (동점이 생기게 소수 첫째 자리로 반올림)"""
+    rng = np.random.default_rng(seed)
+    st = stage1.Stage1.__new__(stage1.Stage1)
+    st.catalog = {c: [] for c in stage1.CATS}
+    for i in range(n_movies):
+        item = {'item_id': f'm{i}', 'category': '영화', 'title': f'영화{i}', 'genres': '드라마', 'date': '2020-01-01', 'end_date': ''}
+        if popularity:
+            item['popularity'] = float(rng.integers(1, 30))   # 동점이 많다
+        st.catalog['영화'].append(item)
+    future = {'item_id': 'future', 'category': '영화', 'title': '개봉 전', 'genres': '', 'date': '2027-01-01', 'end_date': ''}
+    if popularity:
+        future['popularity'] = 99.0
+    st.catalog['영화'].append(future)
+    for c, p in [('뮤지컬', 'M'), ('연극', 'P'), ('전시', 'E')]:
+        for i in range(n_shows):
+            st.catalog[c].append({'item_id': f'{p}{i}', 'category': c, 'title': f'{c}{i}', 'genres': '드라마',
+                                  'date': '2026-01-01', 'end_date': '2026-12-31'})
+        st.catalog[c].append({'item_id': f'{p}end', 'category': c, 'title': '끝난 작품', 'genres': '',
+                              'date': '2020-01-01', 'end_date': '2020-02-01'})
+    ids = [x['item_id'] for v in st.catalog.values() for x in v]
+    st.col_of = {x: j for j, x in enumerate(ids)}
+    st.popularity_weight = {'영화': stage1.POPULARITY_WEIGHT['영화'] if popularity else 0.0}
+    scores = np.round(rng.random(len(ids)), 1).astype(np.float32)
+    st.score = lambda life_ids: scores
+    st.scores = scores
+    return st
+
+
+class PercentileTests(SimpleTestCase):
+    def test_first_is_one_last_is_zero(self):
+        self.assertEqual(list(stage1.percentile([5.0, 1.0, 3.0])), [1.0, 0.0, 0.5])
+
+    def test_ties_share_average_rank(self):
+        # 3, 3이 2위·3위 → 둘 다 2.5위. (4 - 2.5) / 3 = 0.5
+        self.assertEqual(list(stage1.percentile([9.0, 3.0, 3.0, 1.0])), [1.0, 0.5, 0.5, 0.0])
+
+    def test_missing_popularity_is_lowest(self):
+        p = stage1.percentile([2.0, -np.inf, 1.0, -np.inf])
+        self.assertEqual((p[1], p[3]), (p.min(), p.min()))
+        self.assertLess(p[1], p[2])
+
+
+class SettingsTests(SimpleTestCase):
+    """stage1·stage2가 settings.py의 값을 그대로 쓰는지"""
+
+    def test_final_values(self):
+        self.assertEqual(settings.CANDIDATE_LIMIT, {'영화': 100, '뮤지컬': None, '연극': None, '전시': None})
+        self.assertEqual(settings.POPULARITY_WEIGHT, {'영화': 0.98})
+        self.assertEqual((settings.BONUS, settings.PENALTY_RATIO, settings.LAMBDA), (3, 1.0, 0.3))
+
+    def test_stages_read_settings(self):
+        self.assertIs(stage1.TOP_N, settings.CANDIDATE_LIMIT)
+        self.assertIs(stage1.POPULARITY_WEIGHT, settings.POPULARITY_WEIGHT)
+        self.assertEqual((stage2.BONUS, stage2.PENALTY_RATIO, stage2.LAMBDA),
+                         (settings.BONUS, settings.PENALTY_RATIO, settings.LAMBDA))
+
+
+class GenrePenaltyAcrossCategoriesTests(SimpleTestCase):
+    """장르 싫어요 감점: 장르 이름이 같으면 다른 카테고리 기록이어도 감점한다 (A 방식)"""
+
+    def test_movie_dislike_penalizes_musical_with_same_genre_name(self):
+        res = stage2.Resources({}, {c: set() for c in stage2.CATS}, {})
+        user = stage2.UserInput('u1', records=[{'kind': 'history', 'rank': '', 'category': '영화', 'item_id': 'm1',
+                                                 'genres': [('코미디', '싫어요')], 'persons': [], 'maker_place_pref': ''}])
+        pp = stage2.prepare_user(user, res)
+        self.assertEqual(pp['disliked_g'], {'코미디'})
+        w = {'genre': 0.5, 'person': 0.25, 'maker': 0.25}
+        kept, _ = stage2.adjust([{'item_id': 'M1', 'title': 't', 'genres': '코미디', 'score': 1.0}], '뮤지컬', w, pp, res)
+        self.assertAlmostEqual(kept[0]['adj'], 1.0 - stage2.BONUS * stage2.PENALTY_RATIO * 0.5)
+
+
+class CandidateRuleTests(SimpleTestCase):
+    def setUp(self):
+        self.st = fake_stage1()
+        self.cands = self.st.candidates(['m0'], ['m1', 'M5'], TODAY)
+
+    def test_movies_are_cut_to_100_and_shows_keep_all_ongoing(self):
+        self.assertEqual({c: len(v) for c, v in self.cands.items()}, {'영화': 100, '뮤지컬': 119, '연극': 120, '전시': 120})
+
+    def test_seen_ended_and_unreleased_works_are_excluded(self):
+        ids = {x['item_id'] for v in self.cands.values() for x in v}
+        self.assertFalse(ids & {'m0', 'm1', 'M5', 'future', 'Mend', 'Pend', 'Eend'})
+
+    def test_score_is_0_to_1_in_ranking_order(self):
+        for c, rows in self.cands.items():
+            scores = [x['score'] for x in rows]
+            self.assertEqual((scores[0], scores[-1]), (1.0, 0.0), c)
+            self.assertEqual(scores, sorted(scores, reverse=True), c)
+            self.assertEqual([x['rank'] for x in rows], list(range(1, len(rows) + 1)), c)
+
+    def test_raw_score_is_vqrec_score(self):
+        for rows in self.cands.values():
+            for x in rows:
+                self.assertEqual(x['raw_score'], float(self.st.scores[self.st.col_of[x['item_id']]]))
+
+    def test_shows_are_ordered_by_vqrec_only_with_catalog_order_on_ties(self):
+        for c in ['뮤지컬', '연극', '전시']:
+            rows = self.cands[c]
+            self.assertNotIn('popularity_pct', rows[0])
+            key = [(-x['raw_score'], self.st.col_of[x['item_id']]) for x in rows]
+            self.assertEqual(key, sorted(key))
+
+    def test_movies_are_ordered_by_blended_score(self):
+        rows = self.cands['영화']
+        w = stage1.POPULARITY_WEIGHT['영화']
+        mixed = [(1 - w) * x['vqrec_pct'] + w * x['popularity_pct'] for x in rows]
+        self.assertEqual(mixed, sorted(mixed, reverse=True))
+        raw = [x['raw_score'] for x in rows]
+        self.assertNotEqual(raw, sorted(raw, reverse=True))   # VQ-Rec만의 순서와는 다르다
+
+    def test_movie_without_popularity_goes_to_bottom_of_popularity(self):
+        st = fake_stage1(n_movies=5)
+        st.catalog['영화'][2]['popularity'] = None
+        rows = {x['item_id']: x for x in st.candidates(['m0'], [], TODAY)['영화']}
+        self.assertEqual(rows['m2']['popularity_pct'], 0.0)
+
+    def test_without_popularity_weight_movies_use_vqrec_only(self):
+        st = fake_stage1(popularity=False)
+        rows = st.candidates(['m0'], [], TODAY)['영화']
+        self.assertEqual(len(rows), 100)
+        self.assertNotIn('popularity_pct', rows[0])
+        key = [(-x['raw_score'], st.col_of[x['item_id']]) for x in rows]
+        self.assertEqual(key, sorted(key))
+
+
+class CatalogPopularityTests(SimpleTestCase):
+    SHOW_COLS = ['code', 'title', 'genres', 'actors', 'venue', 'date', 'end_date']
+    MOVIE = {'title': 't', 'genres': '', 'actors': '', 'directors': '', 'date': '2020-01-01'}
+
+    def load(self, movie_cols, movie_rows):
+        st = stage1.Stage1.__new__(stage1.Stage1)
+        with tempfile.TemporaryDirectory() as d:
+            cat = Path(d) / 'catalog'
+            cat.mkdir()
+            files = [('movies.csv', movie_cols, movie_rows)]
+            files += [(f, self.SHOW_COLS, []) for f in ('musicals.csv', 'plays.csv', 'exhibitions.csv')]
+            for f, cols, rows in files:
+                with open(cat / f, 'w', encoding='utf-8-sig', newline='') as fh:
+                    w = csv.DictWriter(fh, fieldnames=cols)
+                    w.writeheader()
+                    w.writerows(rows)
+            st.col_of = {r['source_id']: i for i, r in enumerate(movie_rows)}
+            st._load_catalog(Path(d))
+        return st
+
+    def test_catalog_with_popularity_uses_weight(self):
+        st = self.load(embedding.MOVIE_COLS, [dict(self.MOVIE, source_id='1', popularity='3.5'),
+                                              dict(self.MOVIE, source_id='2', popularity='')])
+        self.assertEqual(st.popularity_weight, {'영화': 0.98})
+        self.assertEqual([x['popularity'] for x in st.catalog['영화']], [3.5, None])
+
+    def test_old_catalog_without_popularity_falls_back_with_warning(self):
+        cols = [c for c in embedding.MOVIE_COLS if c != 'popularity']
+        with self.assertLogs('recommend.engine.stage1', level='WARNING') as logs:
+            st = self.load(cols, [dict(self.MOVIE, source_id='1')])
+        self.assertEqual(st.popularity_weight, {'영화': 0.0})
+        self.assertIn('popularity', logs.output[0])
+
+    def test_write_catalog_has_popularity_column(self):
+        movie = {'category': 'movie', 'source_id': '1', 'title': 't', 'genres': ['드라마'], 'actors': [], 'directors': [],
+                 'date': None}
+        items = {'1': dict(movie, popularity=12.5), '2': dict(movie, source_id='2', popularity=None),
+                 '3': dict(movie, source_id='3', popularity=0.0)}
+        with tempfile.TemporaryDirectory() as d:
+            embedding.write_catalog(items, Path(d))
+            rows = stage2.read_csv(Path(d) / 'catalog' / 'movies.csv')
+        self.assertEqual([r['popularity'] for r in rows], ['12.5', '', '0.0'])
+
+
+class RecommendParamsTests(SimpleTestCase):
+    def recommend(self, popularity):
+        rec = Recommender.__new__(Recommender)
+        rec.stage1 = fake_stage1(popularity=popularity)
+        rec.stage1.seq_id = dict(rec.stage1.col_of)
+        rec.res = stage2.Resources({}, {c: set() for c in stage2.CATS}, {})
+        user = stage2.UserInput('u1', records=[{'kind': 'life_work', 'rank': '1', 'category': '영화', 'item_id': 'm0',
+                                                 'genres': [], 'persons': [], 'maker_place_pref': ''}])
+        return rec.recommend(user, TODAY)
+
+    def test_params_report_real_candidate_counts_and_weight(self):
+        params = self.recommend(True)['params']
+        self.assertEqual(params['candidates_per_category'], {'영화': 100, '뮤지컬': 120, '연극': 120, '전시': 120})
+        self.assertEqual(params['popularity_weight'], {'영화': 0.98})
+        self.assertEqual((params['lambda'], params['bonus'], params['penalty_ratio'], params['top_n']), (0.3, 3, 1.0, 5))
+
+    def test_params_report_zero_weight_when_popularity_is_missing(self):
+        self.assertEqual(self.recommend(False)['params']['popularity_weight'], {'영화': 0.0})
+
+    def test_five_recommendations_per_category(self):
+        recs = self.recommend(True)['recommendations']
+        self.assertEqual({c: len(v) for c, v in recs.items()}, {c: 5 for c in stage2.CATS})

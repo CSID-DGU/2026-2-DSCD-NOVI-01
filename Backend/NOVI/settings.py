@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'works',
     'users',
     'recommend',
+    'ocr',
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -156,3 +157,9 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+
+# 티켓 OCR (ocr 앱)
+# OCR이 읽은 글자(사진은 보내지 않음)를 제목·장소·일시로 분류하는 Gemma 4 (같은 서버의 llama-server).
+# 줄거리 태깅에 쓰는 Groq와는 따로 쓴다
+GEMMA_URL = os.getenv('GEMMA_URL', 'http://127.0.0.1:8001/v1/chat/completions')
