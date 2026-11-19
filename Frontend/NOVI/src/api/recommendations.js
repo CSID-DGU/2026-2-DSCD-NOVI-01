@@ -37,6 +37,42 @@ export function toReasonText(reason, category) {
   return '취향 기반 추천'
 }
 
+function pairParticle(word) {
+  const code = word.charCodeAt(word.length - 1) - 0xac00
+  if (code < 0 || code > 11171) return '과(와)'
+  return code % 28 === 0 ? '와' : '과'
+}
+
+export function reasonToText(r, category) {
+  if (!r || typeof r !== 'object') return ''
+  const names = Array.isArray(r.names) ? r.names.filter(Boolean) : []
+  const who = names.length > 1 ? `${names[0]} 외 ${names.length - 1}명` : names[0]
+  switch (r.type) {
+    case 'liked_person': 
+      if (!who) return ''
+      return category === 'exhibition'
+        ? `좋아요 한 작가 ${who}의 작품이에요`
+        : `좋아요 한 배우 ${who}${names.length > 1 ? '이' : subjectParticle(names[0])} 출연해요`
+    case 'liked_maker': 
+      if (!who) return ''
+      if (category === 'movie') return `좋아요 한 감독 ${who}의 작품이에요`
+      return category === 'exhibition' ? `좋아요 한 전시장 ${who}에서 열려요` : `좋아요 한 공연장 ${who}에서 해요`
+    case 'life_work_tag':
+      if (!r.tag || !r.anchor_title) return ''
+      return `좋아한 「${r.anchor_title}」${pairParticle(r.anchor_title)} 같은 '${r.tag}' 분위기`
+    case 'record_tag': 
+      return r.tag ? `좋아한 '${r.tag}' 분위기` : ''
+    case 'target_tag':
+      return r.tag ? `선호하는 '${r.tag}' 분위기` : ''
+    default:
+      return ''
+  }
+}
+
+export function toReasonTexts(reasons, category) {
+  return (Array.isArray(reasons) ? reasons : []).map((r) => reasonToText(r, category)).filter(Boolean).slice(0, 3)
+}
+
 export function toPickCard(item) {
   return {
     id: item.item_id,
@@ -51,7 +87,8 @@ export function toPickCard(item) {
     actors: Array.isArray(item.actors) ? item.actors : [],
     directors: Array.isArray(item.directors) ? item.directors : [],
     venue: item.venue || '',
-    reason: toReasonText(item.reason, item.category),
+    reason: toReasonTexts(item.reasons, item.category)[0] || toReasonText(item.reason, item.category),
+    reasonDetails: toReasonTexts(item.reasons, item.category),
     reasonType: typeof item.reason === 'string' && item.reason.split(' / ').some((p) => p.startsWith('좋아요 사람')) ? 'person' : 'taste',
   }
 }

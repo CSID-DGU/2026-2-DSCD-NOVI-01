@@ -15,7 +15,7 @@ def recommendations(request):
         run, refresh = services.get_recommendations(request.user)
     except ValueError as e:   # 인생작이 없거나 모두 모델이 모르는 작품
         return _json({'message': str(e)}, status=400)
-    return _json(services.to_api(run.result, refresh, run.generated_at))
+    return _json(services.to_api(run.result, refresh, run.generated_at, user=request.user))
 
 
 @require_GET

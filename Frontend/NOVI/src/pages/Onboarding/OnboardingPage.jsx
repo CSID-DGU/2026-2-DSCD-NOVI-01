@@ -295,7 +295,7 @@ function OnboardingPage() {
         </>}
         {stage === 2 && <>
           <h1>인생작 5개를 알려주세요</h1>
-          <p className="onb-subtitle">분야는 상관없이 좋아하는 작품을 최대 5개까지 골라주세요.</p>
+          <p className="onb-subtitle">가장 좋아하는 작품부터 순서대로, 인생작을 최대 5개 골라주세요.</p>
           <div className="onb-work-slots" aria-label="선택한 인생 작품">
             {Array.from({ length:5 }, (_, index) => <WorkSlot key={index} index={index} work={chosen[index]} active={index === chosen.length} onRemove={() => removeWork(chosen[index].id)} />)}
           </div>
