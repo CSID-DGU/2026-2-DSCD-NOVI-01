@@ -1,4 +1,5 @@
 import { apiRequest } from './auth.js'
+import { toReasonTexts } from './recommendations.js'
 
 function toPickDetail(d) {
   return {
@@ -16,8 +17,9 @@ function toPickDetail(d) {
     endDate: d.end_date ?? undefined,
     bookmarked: Boolean(d.bookmarked),
     response: d.response ?? null,
-    reason: '',
+    reason: toReasonTexts(d.reasons, d.category)[0] || '',
     reasonDetail: '',
+    reasonDetails: toReasonTexts(d.reasons, d.category),
   }
 }
 

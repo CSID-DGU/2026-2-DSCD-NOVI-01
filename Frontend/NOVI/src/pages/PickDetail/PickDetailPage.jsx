@@ -94,6 +94,10 @@ export default function PickDetailPage() {
 
   const backTo = work ? `/picks?category=${work.category}` : '/picks'
 
+  const extraReasons = work && Array.isArray(work.reasonDetails)
+    ? work.reasonDetails.filter((text) => text && text !== work.reason).slice(0, 2)
+    : []
+
   return (
     <div className="tt-pick-detail">
       <AppHeader />
@@ -122,6 +126,13 @@ export default function PickDetailPage() {
                 <section className="tt-pick-detail__reason" aria-label="추천 이유">
                   <span className="tt-pick-detail__reason-label">추천 이유</span>
                   <strong>{work.reason}</strong>
+                  {extraReasons.length > 0 && (
+                    <ul className="tt-pick-detail__reason-list">
+                      {extraReasons.map((text) => (
+                        <li key={text}>{text}</li>
+                      ))}
+                    </ul>
+                  )}
                   {work.reasonDetail && <p>{work.reasonDetail}</p>}
                 </section>
               )}

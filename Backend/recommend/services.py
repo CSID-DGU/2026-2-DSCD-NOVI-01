@@ -27,6 +27,7 @@ from .engine import stage2
 from .engine.recommend import DEFAULT_WEIGHTS, Recommender, user_from_json
 from .engine.stage1 import VQREC_COMMIT, in_pool
 from .models import RecommendationRun
+from collections import defaultdict
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +41,74 @@ _lock = threading.Lock()
 _engine = None
 _version = None
 
+# 추천 이유 코드 수정
+COMMON_TAG_RATIO = 0.3
+MAX_REASONS = 3          
+
+
+def _tags_of(res, category, genres):
+    """victory: 장르 목록 -> 느낌 태그 집합 (2단계와 같은 연결표)"""
+    return set(stage2.genre_tag_dist(res, category, [g for g in genres if g]))
+
+
+def _reason_context(user, engine, result):
+    """victory: 사용자마다 한 번만 계산하는 값 (좋아요·싫어요, 목표 태그, 기록별 좋아요 태그, 흔한 태그)"""
+    u = engine_user(user)
+    res = engine.res
+    pp = stage2.prepare_user(u, res)
+    titles = {}
+    for r in u.records:
+        if r['kind'] == UserWork.RecordType.LIFE_WORK and r['item_id'] not in titles:
+            w = find_work(r['item_id'])
+            titles[r['item_id']] = w.title if w else ''
+    life, hist_tags = [], defaultdict(set)
+    for r in u.records:
+        liked = [g for g, pv in r['genres'] if pv == '좋아요']
+        tags = _tags_of(res, r['category'], liked)
+        if r['kind'] == UserWork.RecordType.LIFE_WORK:
+            life.append((int(r['rank'] or 99), titles.get(r['item_id'], ''), tags))
+        elif liked:  
+            for c in stage2.CATS:
+                hist_tags[c] |= tags
+    life.sort(key=lambda x: x[0])  
+    common = {}
+    for c, cands in result.get('candidates', {}).items(): 
+        cnt = defaultdict(int)
+        for x in cands:
+            for t in _tags_of(res, c, x['genres'].split('|')):
+                cnt[t] += 1
+        common[c] = {t for t, n in cnt.items() if cands and n / len(cands) >= COMMON_TAG_RATIO}
+    bad = {c: {t for g in pp['disliked_g'] for t in res.tagmap.get((c, g), [])} for c in stage2.CATS} 
+    return {'res': res, 'pp': pp, 'life': life, 'hist_tags': hist_tags, 'common': common, 'bad': bad}
+
+
+def build_reasons(ctx, category, item_id, genres):
+    """victory: 작품 1편의 추천 근거 목록 (우선순위 순, 최대 MAX_REASONS개). category는 한국어(영화·뮤지컬·연극·전시)"""
+    res, pp = ctx['res'], ctx['pp']
+    info = res.db.get((category, item_id), {'actors': [], 'makers': []})
+    out = []
+    people = sorted(set(info['actors']) & pp['liked_p'])
+    if people:   
+        out.append({'type': 'liked_person', 'names': people})
+    makers = sorted(set(info['makers']) & pp['liked_m'])
+    if makers:  
+        out.append({'type': 'liked_maker', 'names': makers})
+    usable = _tags_of(res, category, genres) - ctx['common'].get(category, set()) - ctx['bad'].get(category, set())
+    target = pp['targets'].get(category, {})
+    best = lambda tags: max(tags, key=lambda t: target.get(t, 0))   
+    for rank, title, tags in ctx['life']:   
+        shared = usable & tags
+        if shared and title:
+            out.append({'type': 'life_work_tag', 'tag': best(shared), 'anchor_title': title, 'anchor_rank': rank})
+            break
+    shared = usable & ctx['hist_tags'].get(category, set())
+    if shared:  
+        out.append({'type': 'record_tag', 'tag': best(shared)})
+    shared = usable & set(target)
+    if shared and not any(r['type'] in ('life_work_tag', 'record_tag') for r in out):  
+        out.append({'type': 'target_tag', 'tag': best(shared)})
+    return out[:MAX_REASONS]
+# 수정 끝
 
 def vqrec_dir():
     """공식 VQ-Rec 코드 폴더 (커밋 298184509f206df44bb1809895cbe5a5e4a7d7be). settings.VQREC_DIR로 바꿀 수 있다"""
@@ -289,6 +358,14 @@ def find_work(item_id):
 def pick_detail(user, work):
     """추천 상세 화면에 쓰는 작품 정보 + 이 사용자의 북마크·응답 상태. 응답은 저장하는 "관심 없어요"만 알 수 있다"""
     item_id, category = work.item_id, work.category
+    reasons = []
+    run = RecommendationRun.objects.filter(user=user).first()
+    if run:
+        for c, items in run.result['recommendations'].items():
+            row = next((x for x in items if x['item_id'] == item_id), None)
+            if row:
+                reasons = build_reasons(_reason_context(user, get_engine(), run.result), c, item_id, row['genres'].split('|'))
+                break
     return {
         'item_id': item_id, 'id': f'{category}:{work.pk}', 'category': category, 'title': work.title,
         'genres': work.genres, 'actors': work.actors, 'directors': getattr(work, 'directors', []), 'venue': work.venue,
@@ -297,10 +374,11 @@ def pick_detail(user, work):
         'end_date': work.end_date.isoformat() if work.end_date else None,
         'bookmarked': user.bookmarks.filter(category=category, item_id=item_id).exists(),
         'response': 'not_interested' if user.not_interested.filter(category=category, item_id=item_id).exists() else None,
+        'reasons': reasons,
     }
 
 
-def to_api(result, refresh=None, generated_at=None):
+def to_api(result, refresh=None, generated_at=None, user=None):
     """엔진 결과 -> API 응답. 카테고리는 영어 코드, 작품마다 DB의 이미지·장소·날짜를 붙인다"""
     recs = result['recommendations']
     movie_ids = [x['item_id'] for x in recs.get('영화', [])]
@@ -308,6 +386,7 @@ def to_api(result, refresh=None, generated_at=None):
     movies = {w.source_id: w for w in Work.objects.filter(category=Work.Category.MOVIE, source_id__in=movie_ids)}
     shows = {p.code: p for p in Production.objects.filter(code__in=show_ids)}
     out = {}
+    ctx = _reason_context(user, get_engine(), result) if user is not None else None
     for c, items in recs.items():
         rows = []
         for x in items:
@@ -321,6 +400,7 @@ def to_api(result, refresh=None, generated_at=None):
                 'date': db.date.isoformat() if db and db.date else None,
                 'end_date': db.end_date.isoformat() if db and db.end_date else None,
                 'feel_tags': x['feel_tags'], 'reason': x['adjust_notes'],
+                'reasons': build_reasons(ctx, c, x['item_id'], x['genres'].split('|')) if ctx else [],
                 'vqrec_score': x['vqrec_score'], 'adj_score': x['adj_score'], 'pick_order': x['pick_order'],
             })
         out[CATEGORY_EN[c]] = rows
