@@ -1,0 +1,28 @@
+# /etc/systemd/system/gemma.service 로 복사해서 쓴다 (README.md 11단계)
+# 티켓 OCR이 읽은 글자를 제목·장소·관람일시로 분류하는 Gemma 4 E2B를 llama.cpp(llama-server)로 상시 실행한다.
+# Django(ocr 앱)가 http://127.0.0.1:8001 로 부른다. 밖에서는 접근할 수 없다 (127.0.0.1에만 연다).
+# 모델과 실행 파일은 gemma-setup.sh가 /home/ubuntu/gemma 에 받아 둔다.
+
+[Unit]
+Description=Gemma 4 E2B (llama.cpp server) for ticket OCR
+After=network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/gemma
+# --parallel 1: 한 번에 한 요청만 처리한다 (CPU 2개라 동시에 돌려도 빨라지지 않고 메모리만 는다)
+# -c 4096: 글자 줄 + 답이 들어갈 만큼 (사진은 보내지 않는다. 글자만 받는다)
+# --threads 2: t3/m7i 2 vCPU. CPU 수를 바꾸면 같이 바꾼다
+# --jinja: 모델의 대화 틀을 쓴다 (enable_thinking 옵션이 이 틀에 있다)
+ExecStart=/home/ubuntu/gemma/llama-b12359/llama-server \
+    -m /home/ubuntu/gemma/models/gemma-4-E2B-it-UD-Q4_K_XL.gguf \
+    --host 127.0.0.1 --port 8001 \
+    --parallel 1 -c 4096 --threads 2 --jinja
+# 웹 서버(gunicorn)와 CPU를 나눠 쓰므로 우선순위를 낮춰서 일반 요청이 밀리지 않게 한다
+Nice=10
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
