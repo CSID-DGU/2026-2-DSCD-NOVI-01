@@ -199,8 +199,10 @@ class RecommendationInputTests(TicketTestCase):
         user = user_from_json(services.build_input(self.user))
         self.assertEqual([(r['kind'], r['item_id']) for r in user.records], [('life_work', '11036'), ('history', '21734')])
 
-    def test_ticket_is_not_in_stage1_sequence(self):
-        self.assertEqual([w['item_id'] for w in services.build_stage1_input(self.user)], ['11036'])
+    def test_ticket_is_in_stage1_input_after_life_works(self):
+        # 재추천 로직(db20815): 관람내역도 1단계 입력에 들어간다. 인생작(rank 순) 다음에 등록 순서대로
+        records = services.build_stage1_input(self.user)
+        self.assertEqual([(w['kind'], w['item_id']) for w in records], [('life_work', '11036'), ('history', '21734')])
 
     def test_ratings_reach_taste(self):
         res = stage2.Resources({}, {c: set() for c in stage2.CATS},

@@ -337,6 +337,35 @@ crontab -l
 
 ---
 
+## 11. 티켓 OCR (Gemma)
+
+사용자가 올린 티켓 사진을 읽어 관람내역 초안을 만든다 (`POST /api/tickets/ocr/`). 같은 서버에서 두 가지가 돈다.
+
+```
+사진 ─► OCR(RapidOCR, gunicorn 안에서 실행) ─► 글자 ─► Gemma 4 E2B(gemma.service, 127.0.0.1:8001) ─► 제목·장소·일시
+        ─► 작품 DB 매칭 ─► 초안(사용자가 확인 후 POST /api/tickets/로 저장)
+```
+
+- 사진은 서버 밖으로 나가지 않고 저장하지도 않는다. Gemma에는 사진이 아니라 OCR이 읽은 글자만 보낸다.
+- OCR 패키지는 `requirements.txt`에 있어서 `update.sh`가 설치한다 (모델 파일이 패키지에 들어 있다). 서버 메모리는 약 440MB를 더 쓴다.
+- Gemma는 `update.sh`가 하지 않는다. **새 서버에 처음 한 번만** 아래를 한다 (모델 약 3.2GB, 디스크 여유 5GB 이상, 메모리는 약 4GB 더 쓰므로 8GB 서버가 필요하다).
+
+```bash
+bash /srv/novi/Backend/deploy/gemma-setup.sh                 # llama.cpp와 모델 받기 (이미 있으면 건너뜀)
+sudo cp /srv/novi/Backend/deploy/gemma.service /etc/systemd/system/gemma.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now gemma                            # 서버가 켜질 때마다 자동 실행
+curl -s http://127.0.0.1:8001/health                         # {"status":"ok"} 이면 정상
+```
+
+- 이후 `update.sh`가 `gemma.service`가 바뀌었을 때 반영하고, 켜져 있으면 다시 시작한다.
+- Django는 `GEMMA_URL`(기본 `http://127.0.0.1:8001/v1/chat/completions`)로 부른다. 바꿀 일이 없으면 `.env`에 적지 않는다.
+- **느리다**: 한 장에 OCR 약 3초 + Gemma 약 30~60초 (2026-11-19 측정, 2 vCPU). Gemma는 한 번에 한 요청씩 처리해서 여럿이 동시에 올리면 줄을 선다. nginx·gunicorn 제한 시간은 120초다.
+- Gemma가 꺼져 있으면 API가 502를 돌려주고, 사용자는 직접 입력한다. 확인: `systemctl status gemma`, `journalctl -u gemma -n 50`.
+- 메모리가 모자라면 먼저 줄일 것: Gemma(`sudo systemctl stop gemma`). 스왑은 4GB 밑으로 줄이지 않는다.
+
+---
+
 ## 코드 업데이트
 
 upstream(`CSID-DGU`) main에 PR이 합쳐진 뒤 서버에서:
@@ -345,7 +374,7 @@ upstream(`CSID-DGU`) main에 PR이 합쳐진 뒤 서버에서:
 bash /srv/novi/Backend/deploy/update.sh
 ```
 
-`git pull` → 패키지 → `migrate` → `collectstatic` → 프론트 다시 빌드 → 서버 설정 반영(`novi.service`, nginx, cron 줄) → gunicorn 재시작까지 한다. 재시작 뒤 약 90초 동안은 엔진을 다시 불러온다. `update.sh` 자체가 바뀐 배포여도 받은 새 버전으로 처음부터 다시 실행하므로 한 번만 돌리면 된다.
+`git pull` → 패키지 → `migrate` → `collectstatic` → 프론트 다시 빌드 → 서버 설정 반영(`novi.service`, `gemma.service`, nginx, cron 줄) → gunicorn 재시작까지 한다. 재시작 뒤 약 90초 동안은 엔진을 다시 불러온다. `update.sh` 자체가 바뀐 배포여도 받은 새 버전으로 처음부터 다시 실행하므로 한 번만 돌리면 된다.
 
 ---
 

@@ -25,10 +25,12 @@ main() {
   npm ci
   npm run build
 
-  # 저장소의 서버 설정을 그대로 반영한다 (gunicorn 서비스, nginx(HTTPS 포함), 새벽 작업 cron)
+  # 저장소의 서버 설정을 그대로 반영한다 (gunicorn·gemma 서비스, nginx(HTTPS 포함), 새벽 작업 cron)
   cd /srv/novi/Backend
   sudo cp deploy/novi.service /etc/systemd/system/novi.service
+  sudo cp deploy/gemma.service /etc/systemd/system/gemma.service   # 켜는 것은 README 11단계에서 한 번만 한다
   sudo systemctl daemon-reload
+  sudo systemctl try-restart gemma   # 이미 켜져 있을 때만 다시 시작한다 (설정이 바뀐 배포 대비)
   sudo cp deploy/nginx-novi.conf /etc/nginx/sites-available/novi
   sudo nginx -t && sudo systemctl reload nginx
   ( crontab -l 2>/dev/null | grep -v 'daily.sh'
