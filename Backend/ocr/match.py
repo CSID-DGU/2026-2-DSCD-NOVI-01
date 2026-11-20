@@ -3,10 +3,11 @@
 OCR은 글자를 한 자씩 틀리고 띄어쓰기를 자주 빼먹는다 (듄 → 둔, "듄: 파트2" → "둔:파트2").
 그래서 양쪽 제목에서 공백·기호를 빼고, 한글은 자모로 풀어서 비교한다 (듄과 둔은 모음 하나만 다르다).
 """
+import threading
+import time
 from difflib import SequenceMatcher
 
-from django.db.models import F, Func, Q, Value
-from django.db.models.functions import Lower
+from django.db.models import F
 
 from works.models import Production, Work
 from works.onboarding_api_views import CATEGORY_MODELS, serialize_work
@@ -53,21 +54,44 @@ def similarity(query, title):
     return score
 
 
-def _squeezed_title(model):
-    """DB 제목에서 공백·기호를 뺀 값 (parse.normalize와 같은 규칙). 영문은 소문자."""
-    return Func(Lower('title'), Value('[^0-9a-z가-힣]'), Value(''), Value('g'), function='regexp_replace')
+# 작품 제목 목록을 메모리에 한 번 올려 두고 비교한다. 예전에는 조회 때마다 DB가 7만여 개 제목에 정규식을 적용해서
+# 초안 하나에 수 초가 걸렸다 (2026-11-20 측정). 새벽 작업이 작품을 바꾸므로 한 시간마다 다시 읽는다
+CACHE_SECONDS = 3600
+_cache = {'loaded_at': None, 'rows': {}}
+_cache_lock = threading.Lock()
+
+
+def _load_titles():
+    """{모델: [(pk, 분야, 공백·기호 뺀 제목, 자모 제목), ...]} 인기순. 인기 있는 작품이 앞에 와서 MAX_ROWS에 먼저 들어간다."""
+    rows = {}
+    for model in (Work, Production):
+        queryset = model.objects.order_by(F('popularity').desc(nulls_last=True)).values_list('pk', 'category', 'title')
+        rows[model] = [(pk, category, squeezed, to_jamo(squeezed))
+                       for pk, category, title in queryset for squeezed in (normalize(title),)]
+    return rows
+
+
+def _titles():
+    with _cache_lock:
+        if _cache['loaded_at'] is None or time.monotonic() - _cache['loaded_at'] >= CACHE_SECONDS:
+            _cache['rows'], _cache['loaded_at'] = _load_titles(), time.monotonic()
+        return _cache['rows']
+
+
+def _score(query, query_jamo, title, title_jamo):
+    """similarity와 같은 점수. 제목마다 자모로 푸는 일을 반복하지 않도록 미리 푼 값을 받는다."""
+    contains = len(title) >= 3 and (title in query or (len(query) >= 3 and query in title))
+    matcher = SequenceMatcher(None, query_jamo, title_jamo, autojunk=False)
+    if not contains and matcher.real_quick_ratio() < MIN_SCORE:   # 길이만으로 이미 MIN_SCORE에 못 미치면 계산하지 않는다
+        return 0.0
+    return max(matcher.ratio(), CONTAINS_SCORE) if contains else matcher.ratio()
 
 
 def _prefilter(model, query, categories):
-    """제목에 질문 제목의 두 글자 조각이 하나라도 들어 있는 작품만 DB에서 가져온다 (전체를 파이썬으로 비교하지 않으려고)."""
+    """제목에 질문 제목의 두 글자 조각이 하나라도 들어 있는 작품만 고른다 (전체를 유사도로 비교하지 않으려고)."""
     grams = {query[i:i + 2] for i in range(len(query) - 1)} or {query}
-    condition = Q()
-    for gram in grams:
-        condition |= Q(squeezed__contains=gram)
-    rows = (model.objects.filter(category__in=categories).annotate(squeezed=_squeezed_title(model))
-            .filter(condition).order_by(F('popularity').desc(nulls_last=True)).values_list('pk', 'category', 'squeezed')
-            [:MAX_ROWS])
-    return list(rows)
+    rows = [row for row in _titles()[model] if row[1] in categories and any(gram in row[2] for gram in grams)]
+    return rows[:MAX_ROWS]
 
 
 def find_candidates(title, category=None, limit=MAX_CANDIDATES):
@@ -78,20 +102,25 @@ def find_candidates(title, category=None, limit=MAX_CANDIDATES):
     query = normalize(title)
     if len(query) < 2:
         return []
+    query_jamo = to_jamo(query)
     wanted = [category] if category else list(CATEGORY_MODELS)
     scored = []
     for model in (Work, Production):
         categories = [c for c in wanted if CATEGORY_MODELS[c] is model]
         if not categories:
             continue
-        for pk, work_category, squeezed in _prefilter(model, query, categories):
-            score = similarity(query, squeezed)
+        for pk, work_category, squeezed, squeezed_jamo in _prefilter(model, query, categories):
+            score = _score(query, query_jamo, squeezed, squeezed_jamo)
             if score >= MIN_SCORE:
-                scored.append((score, model, pk, work_category))
+                scored.append((score, model, pk))
     scored.sort(key=lambda s: -s[0])
     top = scored[:limit]
-    works = {(model, pk): model.objects.get(pk=pk) for _, model, pk, _ in top}
-    return [(round(score, 2), works[(model, pk)]) for score, model, pk, _ in top]
+    works = {}
+    for model in (Work, Production):
+        pks = [pk for _, m, pk in top if m is model]
+        works.update({(model, w.pk): w for w in model.objects.filter(pk__in=pks)})
+    # 캐시가 한 시간 묵을 수 있어서, 그 사이 지워진 작품은 건너뛴다
+    return [(round(score, 2), works[(model, pk)]) for score, model, pk in top if (model, pk) in works]
 
 
 def attach_candidates(drafts):

@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 
 from users.api_views import _json, login_required_json
 
-from . import engine, gemma, match, parse
+from . import engine, llm, match, parse
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +36,8 @@ def ocr_tickets(request):
         return _json({'drafts': [], 'message': '이미지에서 글자를 찾지 못했어요.'})
 
     try:
-        drafts = parse.extract_drafts(lines, date.today(), gemma.ask_gemma)   # USE_TZ가 꺼져 있어서 timezone.localdate()는 쓸 수 없다
-    except Exception:   # Gemma 서버가 꺼져 있거나 답이 이상한 경우. 사용자는 직접 입력하면 된다
+        drafts = parse.extract_drafts(lines, date.today(), llm.ask_llm)   # USE_TZ가 꺼져 있어서 timezone.localdate()는 쓸 수 없다
+    except Exception:   # Groq 한도·장애·시간 초과나 답이 이상한 경우. 사용자는 직접 입력하면 된다
         logger.exception('티켓 OCR: 제목·날짜 추출 실패')
         return _json({'drafts': [], 'message': '티켓 정보를 읽는 데 실패했어요. 직접 입력해 주세요.'}, status=502)
 

@@ -1,6 +1,6 @@
 """OCR 글자 줄 → 작품 제목·관람 날짜 (영화관 이름은 있으면 덤).
 
-날짜·영화관은 모양이 정해져 있어서 정규식으로, 제목은 어느 줄인지 정규식으로 알 수 없어서 LLM(gemma.py)으로 뽑는다.
+날짜·영화관은 모양이 정해져 있어서 정규식으로, 제목은 어느 줄인지 정규식으로 알 수 없어서 LLM(llm.py)으로 뽑는다.
 LLM이 없는 제목을 지어내지 않도록 제목이 OCR 글자에 실제로 있는지, 날짜가 글자에서 정규식으로 찾은 것인지 확인한다.
 """
 import re
@@ -32,8 +32,19 @@ def normalize(text):
     return re.sub(r'[^0-9a-z가-힣]', '', text.lower())
 
 
+# 이름·ID가 적힌 줄 (예: "ID 닉네임", "예매자 홍길동"), 휴대전화 번호. 외부 LLM에 보내기 전에 가린다
+PERSONAL = re.compile(r'(?<![A-Za-z])(ID|예매자|성명|이름|회원명|닉네임|구매자)(\s*[:：]?\s*)\S+')
+PHONE = re.compile(r'(?<!\d)01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}(?!\d)')
+
+
+def mask_personal(text):
+    """LLM에 보내기 전에 개인정보를 ###로 가린다: ID·이름 뒤의 값, 전화번호, 긴 숫자(예매번호)."""
+    hide_value = lambda m: m.group(1) + m.group(2) + '###'   # 라벨(ID, 이름)은 남기고 값만 가린다
+    return mask_numbers(PHONE.sub('###', PERSONAL.sub(hide_value, text)))
+
+
 def mask_numbers(text):
-    """긴 숫자(예매번호·전화번호)를 가린다. LLM에 보내기 전에 쓴다."""
+    """긴 숫자(예매번호·전화번호)를 가린다."""
     return LONG_NUMBER.sub('#', text)
 
 
@@ -106,7 +117,7 @@ def title_in_text(title, lines):
 def extract_drafts(lines, today, ask):
     """글자 줄 → 초안 목록 [{"title", "viewed_at", "venue", "category"}]. 작품 DB 매칭은 하지 않는다 (match.py).
 
-    ask: 글자 줄을 받아 [{"title", "venue", "date", "category"}, ...]를 돌려주는 함수 (gemma.ask_gemma. 테스트에서는 가짜).
+    ask: 글자 줄을 받아 [{"title", "venue", "date", "category"}, ...]를 돌려주는 함수 (llm.ask_llm. 테스트에서는 가짜).
     """
     if not lines:
         return []
