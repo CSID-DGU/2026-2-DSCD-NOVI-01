@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppHeader from '../../components/AppHeader/AppHeader.jsx'
 import FeatureCard from '../../components/FeatureCard/FeatureCard.jsx'
@@ -8,6 +8,7 @@ import './HomePage.css'
 import WorksSection from '../../components/WorksSection/WorksSection.jsx'
 import RecommendationEvaluationModal from '../../components/evaluation/RecommendationEvaluationModal.jsx'
 import { evaluationDemoData } from '../../components/evaluation/evaluationDemoData.js'
+import { startEvaluation, submitEvaluation } from '../../api/interleavingEvaluation.js'
 
 /** 05_Home.svg - 서비스 메인 */
 export default function HomePage() {
@@ -16,7 +17,7 @@ export default function HomePage() {
   const fileRef = useRef(null)
   const [selectedFile, setSelectedFile] = useState(null)
   const [fileMessage, setFileMessage] = useState('')
-  
+
   // 인터리빙 평가 기능 활성화 여부
   const EVALUATION_ENABLED =
     import.meta.env.VITE_INTERLEAVING_ENABLED === 'true'
@@ -28,26 +29,60 @@ export default function HomePage() {
     const pending =
       sessionStorage.getItem('novi-evaluation-pending-v1') === '1'
 
-    const preview =
-      new URLSearchParams(window.location.search)
-        .get('evaluation') === 'preview'
-
-    return pending || preview
+    const requested = new URLSearchParams(window.location.search).get('evaluation')
+    return pending || requested === 'preview' || requested === 'live'
   })
 
   const [evaluationNotice, setEvaluationNotice] = useState('')
+  const [evaluationSession, setEvaluationSession] = useState(null)
+  const [evaluationConsent, setEvaluationConsent] = useState(false)
+  const [evaluationLoading, setEvaluationLoading] = useState(false)
+  const [evaluationError, setEvaluationError] = useState('')
+  const [retryCount, setRetryCount] = useState(0)
+  const previewMode = new URLSearchParams(window.location.search).get('evaluation') === 'preview'
 
+  useEffect(() => {
+    if (!evaluationOpen || !evaluationConsent || previewMode || !EVALUATION_ENABLED) return undefined
+    const controller = new AbortController()
+    let active = true
+    setEvaluationLoading(true)
+    setEvaluationError('')
+    setEvaluationSession(null)
+
+    async function prepare() {
+      try {
+        // Django가 DB에서 후보를 읽고 OpenAI를 직접 호출해 결과를 세션에 보관합니다.
+        const session = await startEvaluation({ signal: controller.signal })
+        if (active) setEvaluationSession(session)
+      } catch (error) {
+        if (active && error?.name !== 'AbortError') {
+          setEvaluationError(error?.message || '평가 추천을 준비하는 도중 오류가 발생했어요.')
+        }
+      } finally {
+        if (active) setEvaluationLoading(false)
+      }
+    }
+    prepare()
+    return () => { active = false; controller.abort() }
+  }, [EVALUATION_ENABLED, evaluationOpen, evaluationConsent, previewMode, retryCount])
 
   function closeEvaluation(message = '') {
     sessionStorage.removeItem('novi-evaluation-pending-v1')
     setEvaluationOpen(false)
+    setEvaluationSession(null)
+    setEvaluationConsent(false)
     setEvaluationNotice(message)
   }
 
-  function submitEvaluationPreview(payload) {
-    // 시연 모드: 실제 평가로 집계되지 않습니다. 서버 저장 API 연결 전까지 로컬 세션에만 기록합니다.
-    sessionStorage.setItem('novi-evaluation-last-preview-v1', JSON.stringify(payload))
-    closeEvaluation('평가 화면 시연이 완료되었어요. 실제 평가 데이터는 아직 서버에 저장되지 않습니다.')
+  async function submitEvaluationPayload(payload) {
+    if (previewMode) {
+      sessionStorage.setItem('novi-evaluation-last-preview-v1', JSON.stringify(payload))
+      closeEvaluation('시연이 완료되었어요. 실제 평가 결과로 집계되지 않습니다.')
+      return
+    }
+    if (!evaluationSession?.session_id) throw new Error('평가 세션을 다시 준비해 주세요.')
+    await submitEvaluation(evaluationSession.session_id, payload.selections)
+    closeEvaluation('관심 작품 평가가 저장되었어요. 참여해 주셔서 감사합니다.')
   }
 
   function handleFileChange(event) {
@@ -138,11 +173,43 @@ export default function HomePage() {
         </div>
       )}
 
+      {evaluationOpen && !previewMode && !evaluationConsent && (
+        <div className="tt-eval__backdrop">
+          <section className="tt-eval__modal" role="dialog" aria-modal="true" aria-labelledby="tt-eval-consent-title" style={{ padding: '2rem', maxWidth: 520 }}>
+            <h2 id="tt-eval-consent-title">추천 비교 평가 안내</h2>
+            <p>인생작 5편, 직접 선택한 좋아요·싫어요 요소와 관람 기록, 입력한 설문 정보를 GPT 추천 생성에 사용합니다. 작품 DB 목록과 NOVI 추천 결과는 GPT에 전달하지 않으며, GPT가 제안한 작품은 서버에서 DB와 대조하며, 정확히 일치하는 작품이 부족하면 GPT 추천 주제를 이용해 DB에서 관련 작품을 추가 탐색합니다. 이 구분은 평가 기록에 남깁니다.</p>
+            <p>평가에서 선택한 작품은 연구 결과 집계를 위해 NOVI 서버에 저장됩니다. 추천 모델 이름은 선택하는 동안 표시되지 않습니다.</p>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+              <button type="button" onClick={() => setEvaluationConsent(true)}>동의하고 평가 시작</button>
+              <button type="button" onClick={() => closeEvaluation()}>참여하지 않기</button>
+            </div>
+          </section>
+        </div>
+      )}
+      {evaluationOpen && !previewMode && evaluationConsent && (evaluationLoading || evaluationError) && (
+        <div className="tt-eval__backdrop">
+          <section className="tt-eval__modal" role="status" aria-live="polite" style={{ padding: '2rem', maxWidth: 520 }}>
+            <h2>추천 평가 준비</h2>
+            {evaluationLoading ? (
+              <p>NOVI와 GPT의 추천 작품을 준비하고 있어요.</p>
+            ) : (
+              <>
+                <p role="alert">{evaluationError}</p>
+                <button type="button" onClick={() => setRetryCount((v) => v + 1)}>다시 시도</button>
+              </>
+            )}
+            <button type="button" onClick={() => closeEvaluation()}>닫기</button>
+          </section>
+        </div>
+      )}
       <RecommendationEvaluationModal
-        open={evaluationOpen}
-        recommendations={evaluationDemoData}
-        previewMode
-        onSubmit={submitEvaluationPreview}
+        key={evaluationSession?.session_id || (previewMode ? 'preview' : 'inactive')}
+        open={evaluationOpen && (previewMode || (evaluationConsent && Boolean(evaluationSession)))}
+        recommendations={previewMode ? evaluationDemoData : {}}
+        preparedImpressions={evaluationSession?.impressions || null}
+        evaluationSessionId={evaluationSession?.session_id}
+        previewMode={previewMode}
+        onSubmit={submitEvaluationPayload}
         onSkip={() => closeEvaluation()}
       />
 
