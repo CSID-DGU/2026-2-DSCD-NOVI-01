@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
 
@@ -40,3 +42,23 @@ class RecommendationRun(models.Model):
 
     def __str__(self):
         return f'{self.user} · {self.today}'
+
+
+class EvaluationSession(models.Model):
+    """실제 5:5 블라인드 평가 스냅샷. 클라이언트가 보낸 모델 출처는 신뢰하지 않는다."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, models.CASCADE, related_name='evaluation_sessions',
+        verbose_name='평가 참여자',
+    )
+    impressions = models.JSONField('화면에 제시한 작품과 모델 출처', default=list)
+    selections = models.JSONField('사용자가 선택한 작품', default=list)
+    gpt_model = models.CharField('GPT 모델', max_length=100, blank=True)
+    prompt_version = models.CharField('GPT 프롬프트 버전', max_length=100, blank=True)
+    recommendation_generated_at = models.CharField('NOVI 추천 생성 시각', max_length=50, blank=True)
+    created_at = models.DateTimeField('평가 시작 시각', auto_now_add=True)
+    submitted_at = models.DateTimeField('평가 제출 시각', null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.user_id} · {self.id} · {"완료" if self.submitted_at else "미제출"}'

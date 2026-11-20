@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types -- 기존 프로젝트는 PropTypes 패키지 없이 JSX props를 전달합니다. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './RecommendationEvaluationModal.css'
 import { fetchEvaluationPoster } from '../../api/evaluationPoster.js'
@@ -131,11 +132,14 @@ function EvaluationCard({ work, index, selected, onSelect }) {
 export default function RecommendationEvaluationModal({
   open = false,
   recommendations = {},
+  preparedImpressions = null,
+  evaluationSessionId = null,
   previewMode = false,
   onSubmit,
   onSkip,
 }) {
-  const [sessionId] = useState(makeSessionId)
+  const [randomSessionId] = useState(makeSessionId)
+  const sessionId = evaluationSessionId || randomSessionId
   const [tabIndex, setTabIndex] = useState(0)
   const [selected, setSelected] = useState({})
   const [submitting, setSubmitting] = useState(false)
@@ -144,9 +148,23 @@ export default function RecommendationEvaluationModal({
   const startRef = useRef(Date.now())
   const returnFocusRef = useRef(null)
 
-  const grouped = useMemo(() => Object.fromEntries(
-    CATEGORIES.map(({ key }) => [key, mixCategory(key, recommendations?.[key], sessionId)])
-  ), [recommendations, sessionId])
+  const grouped = useMemo(() => {
+    if (Array.isArray(preparedImpressions)) {
+      return Object.fromEntries(CATEGORIES.map(({ key }) => [
+        key,
+        preparedImpressions.filter((row) => row.category === key).map((row) => ({
+          ...row,
+          canonicalId: String(row.item_id),
+          genre: Array.isArray(row.genres) ? row.genres.join(' · ') : '',
+          posterUrl: row.image_url || '',
+          displayPosition: row.display_position,
+        })),
+      ]))
+    }
+    return Object.fromEntries(
+      CATEGORIES.map(({ key }) => [key, mixCategory(key, recommendations?.[key], sessionId)])
+    )
+  }, [preparedImpressions, recommendations, sessionId])
 
   useEffect(() => {
     if (!open) return undefined
@@ -189,17 +207,13 @@ export default function RecommendationEvaluationModal({
 
   async function handleSubmit() {
     if (submitting) return
-    if (!selections.length) {
-      setError('선택한 작품이 없어요. 관심 있는 작품을 골라주시거나 건너뛰기를 눌러주세요.')
-      return
-    }
     setSubmitting(true)
     setError('')
     const payload = {
       session_id: sessionId,
       submitted_at: new Date().toISOString(),
       duration_ms: Date.now() - startRef.current,
-      evaluation_method: 'blind_5x5_multi_select_preview',
+      evaluation_method: previewMode ? 'blind_5x5_multi_select_preview' : 'blind_5x5_multi_select_shared_neutral',
       preview_only: previewMode,
       impressions: Object.values(grouped).flat().map((work) => ({
         category: work.category, item_id: work.canonicalId,
@@ -272,7 +286,7 @@ export default function RecommendationEvaluationModal({
             {tabIndex < CATEGORIES.length - 1 ? (
               <button type="button" className="tt-eval__primary" onClick={() => setTabIndex((v) => v + 1)}>다음 분야 <span aria-hidden="true">→</span></button>
             ) : (
-              <button type="button" className="tt-eval__primary" onClick={handleSubmit} disabled={submitting}>{submitting ? '제출 중…' : `선택 완료 (${selections.length}편)`} <span aria-hidden="true">→</span></button>
+              <button type="button" className="tt-eval__primary" onClick={handleSubmit} disabled={submitting}>{submitting ? '제출 중…' : (selections.length ? `선택 완료 (${selections.length}편)` : '관심 작품 없음으로 제출')} <span aria-hidden="true">→</span></button>
             )}
           </div>
           {error && <p className="tt-eval__error" role="alert">{error}</p>}
