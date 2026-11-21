@@ -3,7 +3,6 @@ import LoginPage from './pages/Login/LoginPage.jsx'
 import SignupPage from './pages/Signup/SignupPage.jsx'
 import OnboardingPage from './pages/Onboarding/OnboardingPage.jsx'
 import HomePage from './pages/Home/HomePage.jsx'
-import PlaceholderPage from './pages/Placeholder/PlaceholderPage.jsx'
 import MyTicketsPage from './pages/MyTickets/MyTicketsPage.jsx'
 import TicketDetailPage from './pages/TicketDetail/TicketDetailPage.jsx'
 import TasteSettingsPage from './pages/TasteSettings/TasteSettingsPage.jsx'
@@ -42,7 +41,8 @@ import PickDetailPage from './pages/PickDetail/PickDetailPage.jsx'
             <Route path="/ticket" element={<TicketResultPage manual />} />
             <Route path="/upload/manual" element={<TicketResultPage manual />} />
             <Route path="/upload/result" element={<TicketResultPage />} />
-            <Route path="/upload" element={<PlaceholderPage title="Upload Ticket" description="티켓 업로드 페이지는 다음 단계에서 구현합니다." />} />
+            {/* 기존 /upload 주소는 실제 업로드 선택지가 있는 홈으로 보냅니다. */}
+            <Route path="/upload" element={<Navigate to="/home" replace />} />
           </Route>
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

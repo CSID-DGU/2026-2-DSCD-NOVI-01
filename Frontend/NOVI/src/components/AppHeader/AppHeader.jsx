@@ -7,7 +7,6 @@ import './AppHeader.css'
 const NAV_ITEMS = [
   { label: "Today's Picks", to: '/picks' },
   { label: 'My Tickets', to: '/tickets' },
-  { label: 'Upload', to: '/upload' },
 ]
 
 /** 로그인 후 공통 헤더. 인증은 백엔드 세션으로 확인합니다. */
