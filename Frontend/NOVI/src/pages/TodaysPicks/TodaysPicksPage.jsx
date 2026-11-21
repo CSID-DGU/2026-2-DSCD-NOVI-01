@@ -6,6 +6,7 @@ import CategoryCard from '../../components/CategoryCard/CategoryCard.jsx'
 import PicksPanel from '../../components/PicksPanel/PicksPanel.jsx'
 import { getRecommendations, toPicksByCategory } from '../../api/recommendations.js'
 import './TodaysPicksPage.css'
+import LoadingPage from '../../components/Loading/LoadingPage.jsx'
 
 const CATEGORIES = [
   { key: 'musical', label: '뮤지컬' },
@@ -103,15 +104,14 @@ export default function TodaysPicksPage({ picksByCategory: injected }) {
   const tabs = CATEGORIES.map(({ key, label }) => ({ key, label, count: getPicks(key).length }))
 
   let content
-  if (status === 'loading') {
+    if (status === 'loading') {
     content = (
-      <div className="tt-picks-page__state" role="status">
-        <p>추천을 불러오는 중이에요…</p>
-        {slow && <p className="tt-picks-page__state-sub">추천 엔진을 준비하고 있어요. 처음에는 1분 정도 걸릴 수 있어요.</p>}
-      </div>
+      <LoadingPage
+        message="추천을 불러오는 중이에요"
+        subMessage={slow ? '추천 엔진을 준비하고 있어요. 처음에는 1분 정도 걸릴 수 있어요.' : '잠시만 기다려 주세요'}
+      />
     )
   } else if (status === 'error') {
-    // victory: 400 = 추천에 쓸 인생작이 없음 (API.md 16번)
     const noLifeWorks = error?.status === 400
     content = (
       <div className="tt-picks-page__state" role="alert">
