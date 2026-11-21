@@ -1,4 +1,4 @@
-"""OCR 티켓 초안 테스트. 실제 OCR 모델·Gemma는 부르지 않고, OCR이 읽은 글자 줄을 직접 넣어서 확인한다.
+"""OCR 티켓 초안 테스트. 실제 OCR 모델·Groq는 부르지 않고, OCR이 읽은 글자 줄을 직접 넣어서 확인한다.
 
 실제 모델로 읽어 보는 시험은 OCR_LIVE=1일 때만 돈다 (모델을 내려받고 20초쯤 걸림).
 """
@@ -8,13 +8,16 @@ from datetime import date
 from unittest import mock, skipUnless
 
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.test import SimpleTestCase, TestCase
+from django.test.utils import CaptureQueriesContext
 from PIL import Image
 
 from works.models import Production, Work
 
-from . import engine, gemma, layout, match, parse
+from . import engine, layout, llm, match, parse
 
+match.CACHE_SECONDS = 0   # 시험에서는 매번 DB에서 제목을 다시 읽는다 (테스트마다 작품이 달라서)
 User = get_user_model()
 TODAY = date(2026, 11, 19)
 
@@ -106,6 +109,12 @@ class CinemaAndMaskTests(SimpleTestCase):
         self.assertEqual(parse.find_cinema(['메가박스 코엑스 3관']), '메가박스 코엑스 3관')
         self.assertEqual(parse.find_cinema(['블루스퀘어 신한카드홀']), '')
 
+    def test_personal_info_is_masked_but_labels_and_titles_stay(self):
+        self.assertEqual(parse.mask_personal('ID 있진:)'), 'ID ###')
+        self.assertEqual(parse.mask_personal('예매자: 홍길동 님'), '예매자: ### 님')
+        self.assertEqual(parse.mask_personal('연락처 010-1234-5678 / 01012345678'), '연락처 ### / ###')
+        self.assertEqual(parse.mask_personal('VIDEO 오디세이 2026.09.12'), 'VIDEO 오디세이 2026.09.12')   # ID가 들어간 영단어는 그대로
+
     def test_seat_is_not_kept_in_venue(self):
         # 좌석은 저장하지 않는다 (제안서 3.3). 상영관·공연장 이름은 남긴다
         self.assertEqual(parse.find_cinema(['CGV 용산아이파크몰 4관 G열 12번']), 'CGV 용산아이파크몰 4관')
@@ -186,33 +195,45 @@ class ExtractDraftsTests(SimpleTestCase):
         self.assertEqual((drafts[0]['category'], drafts[0]['venue']), (None, ''))
 
     def test_empty_lines(self):
-        self.assertEqual(parse.extract_drafts([], TODAY, ask=lambda _: self.fail('글자가 없으면 Gemma를 부르면 안 된다')), [])
+        self.assertEqual(parse.extract_drafts([], TODAY, ask=lambda _: self.fail('글자가 없으면 LLM을 부르면 안 된다')), [])
 
 
-class GemmaTests(SimpleTestCase):
+class LlmTests(SimpleTestCase):
     def test_parse_plain_and_wrapped_json(self):
         items = [{'title': '오디세이', 'date': '2026-09-12'}]
-        self.assertEqual(gemma.parse_items('{"items": [{"title": "오디세이", "date": "2026-09-12"}]}'), items)
-        wrapped = '결과입니다:\n```json\n{"items": [{"title": "오디세이", "date": "2026-09-12"}]}\n```'
-        self.assertEqual(gemma.parse_items(wrapped), items)
-        self.assertEqual(gemma.parse_items('[{"title": "오디세이", "date": "2026-09-12"}]'), items)
-        self.assertEqual(gemma.parse_items('{"items": []}'), [])
+        self.assertEqual(llm.parse_items('{"items": [{"title": "오디세이", "date": "2026-09-12"}]}'), items)
+        wrapped = '결과입니다:' + chr(10) + '```json' + chr(10) + '{"items": [{"title": "오디세이", "date": "2026-09-12"}]}' + chr(10) + '```'
+        self.assertEqual(llm.parse_items(wrapped), items)
+        self.assertEqual(llm.parse_items('[{"title": "오디세이", "date": "2026-09-12"}]'), items)
+        self.assertEqual(llm.parse_items('{"items": []}'), [])
 
     def test_unreadable_answer_raises(self):
         for content in ['', '모르겠어요', '{"title": "x"}', None]:
             with self.assertRaises(ValueError, msg=content):
-                gemma.parse_items(content)
+                llm.parse_items(content)
 
-    def test_request_sends_only_masked_text_never_an_image(self):
-        reply = mock.Mock(**{'json.return_value': {'choices': [{'message': {'content': '{"items": []}'}}]}})
-        with mock.patch('ocr.gemma.requests.post', return_value=reply) as post:
-            self.assertEqual(gemma.ask_gemma(['예매번호 1234567890123', '오디세이']), [])
-        body = post.call_args.kwargs['json']
-        content = body['messages'][0]['content']
-        self.assertIsInstance(content, str)   # 이미지 조각이 없는 글자뿐인 요청
-        self.assertNotIn('1234567890123', content)
-        self.assertIn('오디세이', content)
-        self.assertEqual(body['chat_template_kwargs'], {'enable_thinking': False})
+    def ask(self, lines, model='openai/gpt-oss-120b', content='{"items": []}'):
+        reply = mock.Mock(**{'choices': [mock.Mock(**{'message.content': content})]})
+        client = mock.Mock(**{'chat.completions.create.return_value': reply})
+        with mock.patch('ocr.llm._get_client', return_value=client), self.settings(OCR_LLM_MODEL=model):
+            result = llm.ask_llm(lines)
+        return result, client.chat.completions.create.call_args.kwargs
+
+    def test_request_sends_only_masked_text(self):
+        _, request = self.ask(['ID 홍길동', '예매자: 김철수', '예매번호 1234567890123', '연락처 010-1234-5678', '오디세이'])
+        prompt = request['messages'][0]['content']
+        for secret in ['홍길동', '김철수', '1234567890123', '010-1234-5678']:
+            self.assertNotIn(secret, prompt)
+        self.assertIn('오디세이', prompt)   # 작품 제목은 그대로 보낸다
+        self.assertIsInstance(prompt, str)   # 이미지 조각이 없는 글자뿐인 요청
+
+    def test_request_options(self):
+        result, request = self.ask(['오디세이'], content='{"items": [{"title": "오디세이"}]}')
+        self.assertEqual(result, [{'title': '오디세이'}])
+        self.assertEqual((request['model'], request['temperature'], request['reasoning_effort']), ('openai/gpt-oss-120b', 0, 'low'))
+        self.assertEqual(request['response_format'], {'type': 'json_object'})
+        _, other = self.ask(['오디세이'], model='llama-3.3-70b-versatile')
+        self.assertNotIn('reasoning_effort', other)   # gpt-oss 계열에만 준다
 
 
 class SimilarityTests(SimpleTestCase):
@@ -287,6 +308,23 @@ class FindCandidatesTests(TestCase):
         self.assertEqual([c['title'] for c in draft['candidates']], ['[운현궁] 기획전시 [푸른꽃의 계절]'])
         self.assertIsNone(draft['work_id'])
 
+    def test_titles_are_read_once_and_reused(self):
+        with mock.patch.object(match, 'CACHE_SECONDS', 3600):
+            match._cache['loaded_at'] = None
+            match.find_candidates('마리 퀴리')   # 제목 목록을 메모리에 올린다
+            with CaptureQueriesContext(connection) as queries:
+                found = match.find_candidates('마리 퀴리')
+        self.assertEqual({work.pk for _, work in found}, {self.curie.pk, self.play.pk})
+        self.assertLessEqual(len(queries), 2)   # 제목 목록은 다시 읽지 않고 찾은 작품만 가져온다
+
+    def test_work_deleted_while_cached_is_skipped(self):
+        with mock.patch.object(match, 'CACHE_SECONDS', 3600):
+            match._cache['loaded_at'] = None
+            match.find_candidates('마리 퀴리')
+            self.play.delete()   # 캐시가 묵은 사이 새벽 작업이 지운 작품
+            found = match.find_candidates('마리 퀴리')
+        self.assertEqual([work.pk for _, work in found], [self.curie.pk])
+
     def test_unique_exact_title_is_still_auto_linked(self):
         self.assertEqual(self.attach('겨울왕국')['work_id'], f'movie:{Work.objects.get(title="겨울왕국").pk}')
 
@@ -332,7 +370,7 @@ class OcrViewTests(TestCase):
         self.client.force_login(self.user)
         lines = ['영화 둔:파트2', '2026.11.19(목) 19:30', 'CGV 용산']
         items = [{'title': '듄: 파트2', 'date': '2026-11-19', 'category': 'movie'}]
-        with mock.patch('ocr.engine.read_lines', return_value=lines), mock.patch('ocr.gemma.ask_gemma', return_value=items):
+        with mock.patch('ocr.engine.read_lines', return_value=lines), mock.patch('ocr.llm.ask_llm', return_value=items):
             response = self.client.post(self.PATH, {'image': io.BytesIO(b'x')})
         self.assertEqual(response.status_code, 200, response.content)
         draft = response.json()['drafts'][0]
@@ -346,10 +384,10 @@ class OcrViewTests(TestCase):
             response = self.client.post(self.PATH, {'image': io.BytesIO(b'x')})
         self.assertEqual((response.status_code, response.json()['drafts']), (200, []))
 
-    def test_gemma_failure_returns_502_with_message(self):
+    def test_llm_failure_returns_502_with_message(self):
         self.client.force_login(self.user)
         with mock.patch('ocr.engine.read_lines', return_value=['오디세이']), \
-                mock.patch('ocr.parse.extract_drafts', side_effect=RuntimeError('Gemma 서버에 연결할 수 없음')):
+                mock.patch('ocr.parse.extract_drafts', side_effect=RuntimeError('Groq 한도 초과')):
             response = self.client.post(self.PATH, {'image': io.BytesIO(b'x')})
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json()['drafts'], [])
