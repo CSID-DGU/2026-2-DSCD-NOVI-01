@@ -172,10 +172,6 @@ export default function TicketResultPage({ manual = false, onRegister }) {
       setNotice('관람 날짜를 입력해 주세요.')
       return
     }
-    if (ticket.category === 'movie' && !ticket.venue.trim()) {
-      setNotice('영화관 이름을 입력해 주세요.')
-      return
-    }
     setSubmitting(true)
     const payload = buildPayload()
     try {

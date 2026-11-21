@@ -4,6 +4,7 @@ import { getPickDetail, sendPickResponse, setBookmark } from '../../api/picks.js
 import { formatPeriod } from '../../utils/formatEndDate.js'
 import './PickDetailPage.css'
 import { Link, useLocation, useParams } from 'react-router-dom'
+import LoadingPage from '../../components/Loading/LoadingPage.jsx' // victory: 공용 로딩 화면
 
 const CATEGORY_LABELS = { movie: '영화', musical: '뮤지컬', play: '연극', exhibition: '전시' }
 const CATEGORY_EN = { movie: 'MOVIE', musical: 'MUSICAL', play: 'PLAY', exhibition: 'EXHIBITION' }
@@ -104,7 +105,7 @@ export default function PickDetailPage() {
       <main className="tt-pick-detail__main">
         <Link to={backTo} className="tt-pick-detail__back">← Today&apos;s Picks로 돌아가기</Link>
 
-        {status === 'loading' && <p className="tt-pick-detail__state">불러오는 중…</p>}
+        {status === 'loading' && <LoadingPage message="작품 정보를 불러오는 중이에요" />}
         {status === 'error' && <p className="tt-pick-detail__state" role="alert">작품 정보를 불러오지 못했어요.</p>}
         {status === 'notFound' && <p className="tt-pick-detail__state">추천 작품을 찾을 수 없어요.</p>}
 

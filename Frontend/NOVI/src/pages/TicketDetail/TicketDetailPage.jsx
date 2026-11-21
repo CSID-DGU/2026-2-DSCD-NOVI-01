@@ -7,6 +7,7 @@ import DiarySection from '../../components/MyTickets/DiarySection.jsx'
 import { fetchTicket, fetchTickets } from '../../api/tickets.js'
 import '../MyTickets/MyTicketsPage.css'
 import './TicketDetailPage.css'
+import LoadingPage from '../../components/Loading/LoadingPage.jsx'
 
 export default function TicketDetailPage() {
   const { ticketId } = useParams()
@@ -33,8 +34,7 @@ export default function TicketDetailPage() {
 
   if (loading || error || !ticket) return (
     <div className="mt-page"><AppHeader/><main className="mt-container mt-not-found">
-      <h1>{loading ? '티켓을 불러오는 중...' : error || '티켓을 찾을 수 없어요.'}</h1>
-      <Link to="/tickets">My Tickets 목록으로 돌아가기</Link>
+      {status === 'loading' && <LoadingPage message="작품 정보를 불러오는 중이에요" />}      <Link to="/tickets">My Tickets 목록으로 돌아가기</Link>
     </main></div>
   )
 
