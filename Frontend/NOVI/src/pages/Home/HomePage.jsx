@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import AppHeader from '../../components/AppHeader/AppHeader.jsx'
 import FeatureCard from '../../components/FeatureCard/FeatureCard.jsx'
 import UploadOption from '../../components/UploadOption/UploadOption.jsx'
-import ArrowCircle from '../../components/ui/ArrowCircle.jsx'
 import './HomePage.css'
 import WorksSection from '../../components/WorksSection/WorksSection.jsx'
 import RecommendationEvaluationModal from '../../components/evaluation/RecommendationEvaluationModal.jsx'
@@ -124,7 +123,6 @@ export default function HomePage() {
               <h1 id="tt-home-upload-title">Upload Ticket</h1>
               <p>한 장의 티켓에 경험을 담아보세요</p>
             </div>
-            <ArrowCircle to="/upload" label="티켓 업로드 페이지로 이동" variant="lavender" />
           </div>
 
           <div className="tt-home-upload__options">
