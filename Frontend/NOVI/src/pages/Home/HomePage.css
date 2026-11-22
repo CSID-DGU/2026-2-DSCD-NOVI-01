@@ -50,3 +50,28 @@
   .tt-upload-option__details p { font-size: 11px; }
   .tt-upload-option__button { grid-column: 1 / -1; height: 42px; margin-top: 0; }
 }
+
+/* 카메라 촬영 다이얼로그: PC 웹캠과 모바일 후면 카메라 공통 */
+.tt-camera-overlay { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 18px; background: rgba(19, 22, 42, .72); }
+.tt-camera-dialog { width: min(100%, 660px); max-height: 95dvh; overflow-y: auto; padding: 23px; border-radius: 20px; background: #fff; box-shadow: 0 22px 80px rgba(0, 0, 0, .3); }
+.tt-camera-dialog__heading { display: flex; justify-content: space-between; align-items: start; gap: 16px; margin-bottom: 16px; }
+.tt-camera-dialog__heading h2 { margin: 0 0 6px; font-size: 21px; color: #282b4d; }
+.tt-camera-dialog__heading p { margin: 0; color: #6f7793; font-size: 13px; line-height: 1.5; }
+.tt-camera-dialog__close { flex: 0 0 36px; height: 36px; border: 0; border-radius: 50%; background: #f0f1f8; font-size: 25px; cursor: pointer; }
+.tt-camera-dialog__preview { position: relative; min-height: 220px; background: #15151f; border-radius: 13px; overflow: hidden; }
+.tt-camera-dialog__preview video { display: block; width: 100%; max-height: 58dvh; min-height: 220px; aspect-ratio: 4 / 3; object-fit: contain; }
+.tt-camera-dialog__hint { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 16px; color: #fff; background: rgba(0,0,0,.6); text-align: center; }
+.tt-camera-dialog__error { margin: 12px 0 0; color: #b12d49; font-size: 13px; }
+.tt-camera-dialog__actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.tt-camera-dialog__actions button { padding: 12px 16px; border-radius: 11px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.tt-camera-dialog__actions button:disabled { opacity: .5; cursor: not-allowed; }
+.tt-camera-dialog__primary { background: #6958b5; border: 1px solid #6958b5; color: #fff; }
+.tt-camera-dialog__secondary { background: #fff; border: 1px solid #d8dbee; color: #292f53; }
+.tt-camera-dialog__actions button:focus-visible, .tt-camera-dialog__close:focus-visible { outline: 3px solid #8572d9; outline-offset: 3px; }
+@media (max-width: 600px) {
+  .tt-camera-overlay { padding: 10px; }
+  .tt-camera-dialog { padding: 17px; }
+  .tt-camera-dialog__actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .tt-camera-dialog__primary { grid-column: 1 / -1; }
+  .tt-camera-dialog__preview video { max-height: 55dvh; }
+}
