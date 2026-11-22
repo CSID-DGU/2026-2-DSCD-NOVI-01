@@ -337,32 +337,22 @@ crontab -l
 
 ---
 
-## 11. 티켓 OCR (Gemma)
+## 11. 티켓 OCR (Groq)
 
-사용자가 올린 티켓 사진을 읽어 관람내역 초안을 만든다 (`POST /api/tickets/ocr/`). 같은 서버에서 두 가지가 돈다.
+사용자가 올린 티켓 사진을 읽어 관람내역 초안을 만든다 (`POST /api/tickets/ocr/`). 서버에 따로 설치할 것은 없고 `update.sh`가 패키지까지 반영한다.
 
 ```
-사진 ─► OCR(RapidOCR, gunicorn 안에서 실행) ─► 글자 ─► Gemma 4 E2B(gemma.service, 127.0.0.1:8001) ─► 제목·장소·일시
-        ─► 작품 DB 매칭 ─► 초안(사용자가 확인 후 POST /api/tickets/로 저장)
+사진 ─► OCR(RapidOCR, gunicorn 안에서 실행) ─► 글자 ─► Groq LLM(gpt-oss-120b) ─► 제목·장소·일시
+        ─► 작품 DB 매칭(메모리 제목 목록) ─► 초안(사용자가 확인 후 POST /api/tickets/로 저장)
 ```
 
-- 사진은 서버 밖으로 나가지 않고 저장하지도 않는다. Gemma에는 사진이 아니라 OCR이 읽은 글자만 보낸다.
-- OCR 패키지는 `requirements.txt`에 있어서 `update.sh`가 설치한다 (모델 파일이 패키지에 들어 있다). 서버 메모리는 약 440MB를 더 쓴다.
-- Gemma는 `update.sh`가 하지 않는다. **새 서버에 처음 한 번만** 아래를 한다 (모델 약 3.2GB, 디스크 여유 5GB 이상, 메모리는 약 4GB 더 쓰므로 8GB 서버가 필요하다).
-
-```bash
-bash /srv/novi/Backend/deploy/gemma-setup.sh                 # llama.cpp와 모델 받기 (이미 있으면 건너뜀)
-sudo cp /srv/novi/Backend/deploy/gemma.service /etc/systemd/system/gemma.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now gemma                            # 서버가 켜질 때마다 자동 실행
-curl -s http://127.0.0.1:8001/health                         # {"status":"ok"} 이면 정상
-```
-
-- 이후 `update.sh`가 `gemma.service`가 바뀌었을 때 반영하고, 켜져 있으면 다시 시작한다.
-- Django는 `GEMMA_URL`(기본 `http://127.0.0.1:8001/v1/chat/completions`)로 부른다. 바꿀 일이 없으면 `.env`에 적지 않는다.
-- **느리다**: 한 장에 OCR 약 3초 + Gemma 약 30~60초 (2026-11-19 측정, 2 vCPU). Gemma는 한 번에 한 요청씩 처리해서 여럿이 동시에 올리면 줄을 선다. nginx·gunicorn 제한 시간은 120초다.
-- Gemma가 꺼져 있으면 API가 502를 돌려주고, 사용자는 직접 입력한다. 확인: `systemctl status gemma`, `journalctl -u gemma -n 50`.
-- 메모리가 모자라면 먼저 줄일 것: Gemma(`sudo systemctl stop gemma`). 스왑은 4GB 밑으로 줄이지 않는다.
+- **사진은 서버 밖으로 나가지 않고 저장하지도 않는다.** Groq에는 사진이 아니라 OCR이 읽은 글자만 보내고, 그 전에 ID·이름·전화번호·예매번호는 `###`로 가린다 (`ocr/parse.py`의 `mask_personal`).
+- OCR 패키지(`rapidocr` 등)는 `requirements.txt`에 있고 모델 파일이 패키지에 들어 있다. 서버 메모리는 OCR 모델과 작품 제목 목록으로 약 0.5GB를 더 쓴다.
+- Groq 키는 줄거리 태깅과 같은 `GROQ_API_KEY`(`.env`)를 쓴다. 모델은 태깅용 `GROQ_MODEL`과 따로 `OCR_GROQ_MODEL`로 정하고(기본 `openai/gpt-oss-120b`), 없으면 `.env`에 적지 않아도 된다. 시간 제한은 `OCR_GROQ_TIMEOUT`(기본 40초).
+- 서버가 켜질 때 OCR 모델과 작품 제목 목록을 뒤에서 미리 올린다 (`RECOMMEND_WARMUP=1`, `ocr/apps.py`). 제목 목록은 한 시간마다 다시 읽는다. 새벽 작업으로 작품이 바뀌어도 최대 한 시간 뒤 반영된다.
+- Groq가 한도(429)나 장애로 막히면 API가 502를 돌려주고 사용자는 직접 입력한다. 확인: `journalctl -u novi -n 100`에서 `티켓 OCR: 제목·날짜 추출 실패`.
+- Groq 한도는 새벽 줄거리 태깅과 나눠 쓴다. 한도 문제가 생기면 `OCR_GROQ_MODEL`을 다른 모델로 바꿔 본다.
+- **Gemma(로컬 LLM)는 현재 쓰지 않는다** (2026-11-20 결정). 서버 CPU 2개에서 글자 생성이 초당 5.5토큰이라 이미지당 약 38초(출력 형식을 줄여도 약 18초)였고, Groq는 약 1초였다. 되돌릴 때를 위해 `gemma.service`와 `gemma-setup.sh`는 남겨 두었다 (서버에는 `~/gemma`에 모델 파일이 있고 서비스는 꺼 둔 상태).
 
 ---
 
@@ -374,7 +364,7 @@ upstream(`CSID-DGU`) main에 PR이 합쳐진 뒤 서버에서:
 bash /srv/novi/Backend/deploy/update.sh
 ```
 
-`git pull` → 패키지 → `migrate` → `collectstatic` → 프론트 다시 빌드 → 서버 설정 반영(`novi.service`, `gemma.service`, nginx, cron 줄) → gunicorn 재시작까지 한다. 재시작 뒤 약 90초 동안은 엔진을 다시 불러온다. `update.sh` 자체가 바뀐 배포여도 받은 새 버전으로 처음부터 다시 실행하므로 한 번만 돌리면 된다.
+`git pull` → 패키지 → `migrate` → `collectstatic` → 프론트 다시 빌드 → 서버 설정 반영(`novi.service`, nginx, cron 줄) → gunicorn 재시작까지 한다. 재시작 뒤 약 90초 동안은 엔진을 다시 불러온다. `update.sh` 자체가 바뀐 배포여도 받은 새 버전으로 처음부터 다시 실행하므로 한 번만 돌리면 된다.
 
 ---
 

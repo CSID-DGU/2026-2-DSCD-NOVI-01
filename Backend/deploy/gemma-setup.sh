@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# [현재 사용하지 않음 - 2026-11-20] 티켓 OCR의 LLM을 Groq로 바꿨다 (README 11단계). 되돌릴 때를 위해 남겨 둔 파일이다.
 # 서버에 Gemma(llama.cpp + 모델 파일)를 한 번 받아 둔다 (README.md 11단계). 이미 받은 것은 건너뛴다.
 # 사용법: bash /srv/novi/Backend/deploy/gemma-setup.sh
 #
