@@ -36,3 +36,20 @@
 .tt-ticket-result__original summary { cursor:pointer; color:#5c60a5; font-size:12px; font-weight:700; }
 .tt-ticket-result__original img { display:block; max-height:340px; max-width:100%; object-fit:contain; margin:14px auto 0; border-radius:8px; }
 .tt-ticket-result__receipt-help { flex-wrap:wrap; line-height:1.6; padding-top:16px; } .tt-ticket-result__preferences .work-pref-grid,.tt-ticket-result__preferences .work-pref-group:first-child .work-pref-grid { grid-template-columns:1fr; } .tt-ticket-result__actions { flex-direction:column; } .tt-ticket-result__button { width:100%; } }
+
+/* OCR 인식 상태 · 작품별 확인 · DB 후보 선택 */
+.tt-ticket-result__editor { border:0; min-width:0; margin:0; padding:0; }
+.tt-ticket-result__editor:disabled { opacity:.65; }
+.tt-ticket-result__ocr-progress { padding:18px 20px; margin:0 0 18px; border:1px solid #d9ddef; border-radius:14px; color:#475781; background:#f8faff; font-size:13px; }
+.tt-ticket-result__drafts,.tt-ticket-result__candidates { padding:18px; margin:0 0 18px; background:#fff; border:1px solid #dee1f1; border-radius:16px; }
+.tt-ticket-result__drafts p,.tt-ticket-result__candidates p { color:#68708d; font-size:12px; margin:0 0 12px; }
+.tt-ticket-result__candidates h2 { font-size:15px; font-weight:700; margin:0 0 6px; }
+.tt-ticket-result__draft-buttons,.tt-ticket-result__candidate-buttons { display:flex; flex-wrap:wrap; gap:8px; }
+.tt-ticket-result__draft-tab,.tt-ticket-result__candidate-buttons button { cursor:pointer; border:1px solid #dce0ef; border-radius:12px; background:#fafaff; color:#303658; padding:10px 14px; text-align:left; font-size:12px; }
+.tt-ticket-result__draft-tab.is-active { border-color:#6a58b5; background:#f0ecfb; color:#55448f; font-weight:700; }
+.tt-ticket-result__candidate-buttons button:hover,.tt-ticket-result__draft-tab:hover { border-color:#6a58b5; }
+.tt-ticket-result__candidate-buttons button:disabled,.tt-ticket-result__draft-tab:disabled { opacity:.55; cursor:wait; }
+.tt-ticket-result__candidate-buttons span { display:inline-block; color:#737c9b; padding-left:5px; }
+.tt-ticket-result__match-hint { margin:0 0 16px; font-size:12px; color:#675a94; }
+.tt-ticket-result__continue { margin:12px 0 0; text-align:center; }
+.tt-ticket-result__continue button { border:0; background:transparent; color:#605194; text-decoration:underline; cursor:pointer; font-size:12px; }

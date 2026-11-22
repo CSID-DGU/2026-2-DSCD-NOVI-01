@@ -27,14 +27,15 @@ async function csrfHeader() {
 
 export async function apiRequest(path, { method = 'GET', body, signal } = {}) {
   const headers = { Accept: 'application/json' }
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
+  if (body !== undefined && !isFormData) headers['Content-Type'] = 'application/json'
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) Object.assign(headers, await csrfHeader())
 
   let response
   try {
     response = await fetch(`${API_BASE}${path}`, {
       method, credentials: 'include', headers, signal,
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined ? {} : { body: isFormData ? body : JSON.stringify(body) }),
     })
   } catch (err) {
     if (err?.name === 'AbortError') throw err
