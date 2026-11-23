@@ -6,6 +6,7 @@ import UploadOption from '../../components/UploadOption/UploadOption.jsx'
 import './HomePage.css'
 import WorksSection from '../../components/WorksSection/WorksSection.jsx'
 import RecommendationEvaluationModal from '../../components/evaluation/RecommendationEvaluationModal.jsx'
+import EvaluationEntryModal from '../../components/evaluation/EvaluationEntryModal.jsx'
 import { evaluationDemoData } from '../../components/evaluation/evaluationDemoData.js'
 import { startEvaluation, submitEvaluation } from '../../api/interleavingEvaluation.js'
 
@@ -326,34 +327,14 @@ export default function HomePage() {
         </div>
       )}
 
-      {evaluationOpen && !previewMode && !evaluationConsent && (
-        <div className="tt-eval__backdrop">
-          <section className="tt-eval__modal" role="dialog" aria-modal="true" aria-labelledby="tt-eval-consent-title" style={{ padding: '2rem', maxWidth: 520 }}>
-            <h2 id="tt-eval-consent-title">추천 비교 평가 안내</h2>
-            <p>인생작 5편, 직접 선택한 좋아요·싫어요 요소와 관람 기록, 입력한 설문 정보를 GPT 추천 생성에 사용합니다. 작품 DB 목록과 NOVI 추천 결과는 GPT에 전달하지 않으며, GPT가 제안한 작품은 서버에서 DB와 대조하며, 정확히 일치하는 작품이 부족하면 GPT 추천 주제를 이용해 DB에서 관련 작품을 추가 탐색합니다. 이 구분은 평가 기록에 남깁니다.</p>
-            <p>평가에서 선택한 작품은 연구 결과 집계를 위해 NOVI 서버에 저장됩니다. 추천 모델 이름은 선택하는 동안 표시되지 않습니다.</p>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-              <button type="button" onClick={() => setEvaluationConsent(true)}>동의하고 평가 시작</button>
-              <button type="button" onClick={() => closeEvaluation()}>참여하지 않기</button>
-            </div>
-          </section>
-        </div>
-      )}
-      {evaluationOpen && !previewMode && evaluationConsent && (evaluationLoading || evaluationError) && (
-        <div className="tt-eval__backdrop">
-          <section className="tt-eval__modal" role="status" aria-live="polite" style={{ padding: '2rem', maxWidth: 520 }}>
-            <h2>추천 평가 준비</h2>
-            {evaluationLoading ? (
-              <p>NOVI와 GPT의 추천 작품을 준비하고 있어요.</p>
-            ) : (
-              <>
-                <p role="alert">{evaluationError}</p>
-                <button type="button" onClick={() => setRetryCount((v) => v + 1)}>다시 시도</button>
-              </>
-            )}
-            <button type="button" onClick={() => closeEvaluation()}>닫기</button>
-          </section>
-        </div>
+      {evaluationOpen && !previewMode && (!evaluationConsent || !evaluationSession) && (
+        <EvaluationEntryModal
+          mode={!evaluationConsent ? 'consent' : evaluationError && !evaluationLoading ? 'error' : 'loading'}
+          error={evaluationError}
+          onAgree={() => setEvaluationConsent(true)}
+          onRetry={() => setRetryCount((value) => value + 1)}
+          onCancel={() => closeEvaluation()}
+        />
       )}
       <RecommendationEvaluationModal
         key={evaluationSession?.session_id || (previewMode ? 'preview' : 'inactive')}
