@@ -37,6 +37,13 @@ export function toReasonText(reason, category) {
   return '취향 기반 추천'
 }
 
+function dropDuplicateTagReasons(reasons) {
+  const lifeTags = new Set(
+    reasons.filter((r) => r?.type === 'life_work_tag' && r.tag).map((r) => r.tag),
+  )
+  return reasons.filter((r) => !(r?.type === 'record_tag' && lifeTags.has(r.tag)))
+}
+
 function pairParticle(word) {
   const code = word.charCodeAt(word.length - 1) - 0xac00
   if (code < 0 || code > 11171) return '과(와)'
@@ -70,7 +77,11 @@ export function reasonToText(r, category) {
 }
 
 export function toReasonTexts(reasons, category) {
-  return (Array.isArray(reasons) ? reasons : []).map((r) => reasonToText(r, category)).filter(Boolean).slice(0, 3)
+  const list = Array.isArray(reasons) ? reasons : []
+  return dropDuplicateTagReasons(list)
+    .map((r) => reasonToText(r, category))
+    .filter(Boolean)
+    .slice(0, 3)
 }
 
 export function toPickCard(item) {
@@ -89,7 +100,7 @@ export function toPickCard(item) {
     venue: item.venue || '',
     reason: toReasonTexts(item.reasons, item.category)[0] || toReasonText(item.reason, item.category),
     reasonDetails: toReasonTexts(item.reasons, item.category),
-    reasonType: typeof item.reason === 'string' && item.reason.split(' / ').some((p) => p.startsWith('좋아요 사람')) ? 'person' : 'taste',
+    reasonType: firstReasonType(item),  
   }
 }
 
@@ -101,4 +112,20 @@ export function toPicksByCategory(data) {
       (Array.isArray(items) ? items : []).slice().sort((a, b) => a.rank - b.rank).map(toPickCard),
     ]),
   )
+}
+
+const REASON_TYPE_BY_KIND = {
+  liked_person: 'person',
+  liked_maker: 'maker',
+  life_work_tag: 'lifeWork',
+  record_tag: 'record',
+  target_tag: 'target',
+}
+
+function firstReasonType(item) {
+  const list = dropDuplicateTagReasons(Array.isArray(item.reasons) ? item.reasons : [])
+  const first = list.find((r) => reasonToText(r, item.category))
+  if (first) return REASON_TYPE_BY_KIND[first.type] ?? 'taste'
+  const legacy = typeof item.reason === 'string' ? item.reason.split(' / ') : []
+  return legacy.some((p) => p.startsWith('좋아요 사람')) ? 'person' : 'taste'
 }

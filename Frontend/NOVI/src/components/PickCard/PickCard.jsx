@@ -6,6 +6,8 @@ const CATEGORY_LABELS = {
   movie: '영화', musical: '뮤지컬', play: '연극', exhibition: '전시',
 }
 
+const REASON_TYPES = ['person', 'maker', 'lifeWork', 'record', 'target', 'taste', 'explore']
+
 function formatDate(value) {
   if (typeof value !== 'string') return ''
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
@@ -78,8 +80,7 @@ export default function PickCard({ work, featured = false, onHover }) {
           </dl>
         )}
         {work.reason && (
-          <span className={`tt-pick-card__reason ${work.reasonType === 'explore' || work.reasonType === 'person' ? `tt-pick-card__reason--${work.reasonType}` : ''}`}>
-            {work.reason}
+          <span className={`tt-pick-card__reason ${REASON_TYPES.includes(work.reasonType) ? `tt-pick-card__reason--${work.reasonType}` : ''}`}>            {work.reason}
           </span>
         )}
       </div>
@@ -98,8 +99,8 @@ PickCard.propTypes = {
     directors: PropTypes.arrayOf(PropTypes.string),
     actors: PropTypes.arrayOf(PropTypes.string),
     reason: PropTypes.string,
-    reasonType: PropTypes.oneOf(['taste', 'explore', 'person']),
-  }).isRequired,
+    reasonType: PropTypes.oneOf(REASON_TYPES),
+    }).isRequired,
   featured: PropTypes.bool,
   onHover: PropTypes.func,
 }

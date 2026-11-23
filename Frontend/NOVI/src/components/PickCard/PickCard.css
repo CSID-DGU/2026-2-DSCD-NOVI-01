@@ -144,3 +144,9 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+
+.tt-pick-card__reason--maker    { background: #d9f1ea; color: #1f5c4d; } /* 좋아요 감독·공연장·전시장 (민트) */
+.tt-pick-card__reason--lifeWork { background: #ece6fb; color: #4b3d96; } /* 인생작과 같은 분위기 (라벤더) */
+.tt-pick-card__reason--record   { background: #fde8dc; color: #8a3f1d; } /* 관람 기록에서 좋아한 분위기 (피치) */
+.tt-pick-card__reason--target   { background: #fbf1cc; color: #6b5310; } /* 선호 분위기 비율 (버터) */
+.tt-pick-card__reason--taste    { background: #eceef6; color: #4a5070; } /* 근거 없음: 취향 기반 추천 (회청) */
