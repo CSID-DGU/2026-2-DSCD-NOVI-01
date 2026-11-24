@@ -97,25 +97,25 @@ class Stage1SequenceTests(SimpleTestCase):
 
     def test_life_works_then_history_in_order(self):
         records = [self.rec('life_work', 'L1'), self.rec('life_work', 'L2'), self.rec('history', 'H1'), self.rec('history', 'H2')]
-        self.assertEqual(self.seq(records)[0], ['L1', 'L2', 'H1', 'H2'])
+        self.assertEqual(self.seq(records)[0], ['H1', 'H2', 'L2', 'L1'])   # 인생작 1위(L1)가 맨 뒤
 
     def test_unknown_works_are_skipped_and_reported(self):
         records = [self.rec('life_work', 'L1'), self.rec('life_work', 'L9'), self.rec('history', 'H1'),
                    self.rec('history', 'H9'), self.rec('history', '')]   # '' = 작품 DB와 연결하지 않은 티켓
         seq, skipped_life, skipped_hist = self.seq(records, known={'L1', 'H1'})
-        self.assertEqual((seq, skipped_life, skipped_hist), (['L1', 'H1'], ['L9'], ['H9']))
+        self.assertEqual((seq, skipped_life, skipped_hist), (['H1', 'L1'], ['L9'], ['H9']))
 
     def test_history_of_life_work_is_not_repeated(self):
         records = [self.rec('life_work', 'L1'), self.rec('history', 'L1'), self.rec('history', 'H1')]
-        self.assertEqual(self.seq(records)[0], ['L1', 'H1'])
+        self.assertEqual(self.seq(records)[0], ['H1', 'L1'])
 
     def test_rewatched_work_takes_latest_position(self):
         records = [self.rec('life_work', 'L1'), self.rec('history', 'H1'), self.rec('history', 'H2'), self.rec('history', 'H1')]
-        self.assertEqual(self.seq(records)[0], ['L1', 'H2', 'H1'])
+        self.assertEqual(self.seq(records)[0], ['H2', 'H1', 'L1'])
 
     def test_too_long_drops_oldest_history_and_keeps_life_works(self):
         records = [self.rec('life_work', 'L1'), self.rec('life_work', 'L2')] + [self.rec('history', f'H{i}') for i in range(5)]
-        self.assertEqual(self.seq(records, max_len=4)[0], ['L1', 'L2', 'H3', 'H4'])
+        self.assertEqual(self.seq(records, max_len=4)[0], ['H3', 'H4', 'L2', 'L1'])
 
     def test_history_only(self):
         self.assertEqual(self.seq([self.rec('history', 'H1')])[0], ['H1'])
@@ -227,9 +227,9 @@ class GetRecommendationsTests(TestCase):
         result, refresh = self.get()
         self.assertEqual(refresh, 'full')
         call = self.engine.stage1.calls[-1]
-        self.assertEqual(call['seq'], ['M0011', '10003'])
+        self.assertEqual(call['seq'], ['10003', 'M0011'])
         self.assertIn('10003', call['seen'])
-        self.assertEqual(result['stage1_sequence'], ['M0011', '10003'])
+        self.assertEqual(result['stage1_sequence'], ['10003', 'M0011'])
         self.assertNotIn('10003', ids(result['recommendations']['영화']))
 
     def test_unlinked_ticket_still_reruns(self):

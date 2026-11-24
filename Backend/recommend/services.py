@@ -171,8 +171,10 @@ def build_stage1_input(user):
 
 
 def stage1_sequence(records, known, max_len):
-    """1단계 기록 -> VQ-Rec 시퀀스 (작품 id 목록, 마지막이 가장 최근). 반환 (시퀀스, 모델이 모르는 인생작, 모르는 관람내역)
-    - 인생작 rank 1~5 다음에 관람내역을 등록 순서대로 붙인다 (최근에 본 작품이 시퀀스 끝)
+    """1단계 기록 -> VQ-Rec 시퀀스 (작품 id 목록). 반환 (시퀀스, 모델이 모르는 인생작, 모르는 관람내역)
+    - 관람내역(등록 순서) 다음에 인생작을 rank 5 -> 1 순으로 붙인다: 1위 인생작이 시퀀스 맨 뒤 (2026-11-24 반영)
+      VQ-Rec은 줄 끝에 가까운 작품을 더 크게 반영한다. 1위를 맨 뒤에 두는 순서는 2026-11-17 실험(NDCG@5 +14%)으로 정했고,
+      관람내역을 인생작 앞에 두는 것은 설문 43명 데이터(관람기록 -> 인생작 5..1위)와 같은 순서라서다
     - 모델이 모르는 작품(작품 DB와 연결하지 않은 티켓, 카탈로그 이후 작품)은 뺀다
     - 인생작과 같은 관람내역, 같은 작품을 다시 본 관람내역은 한 번만 넣는다 (다시 본 작품은 가장 최근 자리)
     - 모델 최대 길이를 넘으면 오래된 관람내역부터 뺀다 (인생작은 항상 남긴다)"""
@@ -182,8 +184,8 @@ def stage1_sequence(records, known, max_len):
     hist = [x for x in hist_all if x in known and x not in life]
     hist = list(dict.fromkeys(reversed(hist)))[::-1]   # 같은 작품은 마지막으로 본 자리 하나만
     room = max(max_len - len(life), 0)
-    hist = hist[len(hist) - room:] if room else []
-    return (life + hist)[-max_len:], [x for x in life_all if x not in known], [x for x in hist_all if x and x not in known]
+    hist = hist[len(hist) - room:] if room else []   # (아래에서 life[::-1]이 뒤에 붙으므로 인생작이 잘리지 않는다)
+    return (hist + life[::-1])[-max_len:], [x for x in life_all if x not in known], [x for x in hist_all if x and x not in known]
 
 
 def run_engine(engine, user, today):
@@ -208,7 +210,7 @@ def run_engine(engine, user, today):
                        'candidates_per_category': {c: len(v) for c, v in cands.items()},   # 카테고리별 실제 1단계 후보 수
                        # 1단계에서 실제로 쓴 인기도 비중. 엔진 파일에 인기도 칸이 없어 섞지 못했으면 0
                        'popularity_weight': dict(engine.stage1.popularity_weight),
-                       'stage1_input': 'life_work+history',
+                       'stage1_input': 'history+life_work(5..1)',
                        'vqrec_commit': VQREC_COMMIT}}
 
 
