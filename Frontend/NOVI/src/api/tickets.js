@@ -53,6 +53,7 @@ export async function createTicket(payload) {
     genre_ratings: normalizeRatings(payload.genre_ratings),
     actor_ratings: normalizeRatings(payload.actor_ratings, 5),
     director_ratings: normalizeRatings(payload.director_ratings),
+    ...(category !== 'movie' ? { venue_pref: venue && [1, -1, 0].includes(payload.venue_pref) ? payload.venue_pref : 0 } : {}),
   }
   if (payload.work_id !== undefined && payload.work_id !== null && String(payload.work_id).trim() !== '') {
     if (!/^(movie|musical|play|exhibition):[1-9]\d*$/.test(String(payload.work_id))) {

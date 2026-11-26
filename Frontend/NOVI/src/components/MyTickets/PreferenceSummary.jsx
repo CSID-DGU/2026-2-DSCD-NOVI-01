@@ -12,6 +12,8 @@ export default function PreferenceSummary({ ticket }) {
     { label:'장르', items:ticket.genre_ratings },
     { label:ticket.category === 'exhibition' ? '작가·형태' : '배우', items:ticket.actor_ratings },
     { label:ticket.category === 'movie' ? '감독' : '연출', items:ticket.director_ratings },
+    { label:'장소', items:ticket.category !== 'movie' && ticket.venue && [1, -1].includes(ticket.director_venue_pref)
+      ? [{ value: ticket.venue, preference: ticket.director_venue_pref }] : [] },
   ].filter(section => Array.isArray(section.items) && section.items.some(x => Number(x.preference) !== 0))
   return (
     <section className="mt-preference-summary">

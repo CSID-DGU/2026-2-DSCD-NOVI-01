@@ -31,10 +31,13 @@ def _clean_ratings(value):
     return ratings
 
 
-def _director_venue_pref(category, director_ratings):
-    """추천에 쓰는 기록당 값 하나. 영화는 감독 평가를 합친 방향이고, 공연·전시는 장소를 평가받지 않으므로 보통이다."""
+def _director_venue_pref(category, director_ratings, venue, venue_pref):
+    """영화는 기존 감독 평가, 공연·전시는 실제 관람 장소 평가를 저장한다."""
     if category != Work.Category.MOVIE:
-        return Preference.NEUTRAL.value
+        pref = _preference(venue_pref)
+        if pref and not venue.strip():
+            raise Invalid('장소를 평가하려면 관람 장소를 입력해 주세요.')
+        return pref
     score = sum(rating['preference'] for rating in director_ratings)
     return (score > 0) - (score < 0)
 
@@ -76,7 +79,8 @@ def _clean(data):
         'genre_ratings': _clean_ratings(data.get('genre_ratings', [])),
         'actor_ratings': actor_ratings,
         'director_ratings': director_ratings,
-        'director_venue_pref': _director_venue_pref(category, director_ratings),
+        'director_venue_pref': _director_venue_pref(category, director_ratings, venue,
+                                                    data.get('venue_pref', Preference.NEUTRAL.value)),
     }
 
 
@@ -99,6 +103,7 @@ def _serialize(ticket, work):
         'genre_ratings': ticket.genre_ratings,
         'actor_ratings': ticket.actor_ratings,
         'director_ratings': ticket.director_ratings,
+        'director_venue_pref': ticket.director_venue_pref,
         'diary': {'content': ticket.diary, 'updated_at': ticket.diary_updated_at.isoformat()} if ticket.diary else None,
     }
 

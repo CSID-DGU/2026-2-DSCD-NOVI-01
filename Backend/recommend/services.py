@@ -172,7 +172,9 @@ def build_stage1_input(user):
 
 def stage1_sequence(records, known, max_len):
     """1단계 기록 -> VQ-Rec 시퀀스 (작품 id 목록, 마지막이 가장 최근). 반환 (시퀀스, 모델이 모르는 인생작, 모르는 관람내역)
-    - 인생작 rank 1~5 다음에 관람내역을 등록 순서대로 붙인다 (최근에 본 작품이 시퀀스 끝)
+    - 인생작을 rank 5 -> 1 순으로 놓고, 그 다음에 관람내역을 등록 순서대로 붙인다 (최근에 본 작품이 시퀀스 끝)
+      인생작끼리는 1위가 맨 뒤다: VQ-Rec은 줄 끝에 가까운 작품을 더 크게 반영하고, 2026-11-17 실험에서 NDCG@5가 +14% 올랐다
+      (관람내역을 인생작 뒤에 붙이는 순서 자체는 따로 실험하지 않았다)
     - 모델이 모르는 작품(작품 DB와 연결하지 않은 티켓, 카탈로그 이후 작품)은 뺀다
     - 인생작과 같은 관람내역, 같은 작품을 다시 본 관람내역은 한 번만 넣는다 (다시 본 작품은 가장 최근 자리)
     - 모델 최대 길이를 넘으면 오래된 관람내역부터 뺀다 (인생작은 항상 남긴다)"""
@@ -183,7 +185,7 @@ def stage1_sequence(records, known, max_len):
     hist = list(dict.fromkeys(reversed(hist)))[::-1]   # 같은 작품은 마지막으로 본 자리 하나만
     room = max(max_len - len(life), 0)
     hist = hist[len(hist) - room:] if room else []
-    return (life + hist)[-max_len:], [x for x in life_all if x not in known], [x for x in hist_all if x and x not in known]
+    return (life[::-1] + hist)[-max_len:], [x for x in life_all if x not in known], [x for x in hist_all if x and x not in known]
 
 
 def run_engine(engine, user, today):
@@ -208,7 +210,7 @@ def run_engine(engine, user, today):
                        'candidates_per_category': {c: len(v) for c, v in cands.items()},   # 카테고리별 실제 1단계 후보 수
                        # 1단계에서 실제로 쓴 인기도 비중. 엔진 파일에 인기도 칸이 없어 섞지 못했으면 0
                        'popularity_weight': dict(engine.stage1.popularity_weight),
-                       'stage1_input': 'life_work+history',
+                       'stage1_input': 'life_work(5..1)+history',
                        'vqrec_commit': VQREC_COMMIT}}
 
 
@@ -222,7 +224,11 @@ def build_stage2_input(user):
     hist = sorted((w for w in works if w.record_type == UserWork.RecordType.HISTORY), key=lambda w: w.input_order)
     records = [{'kind': w.record_type, 'category': CATEGORY_KO[w.category], 'item_id': w.item_id,
                 'genres': _ratings(w.genre_ratings), 'persons': _ratings(w.actor_ratings),
-                'maker_place_pref': PREF_KO[w.director_venue_pref]} for w in life + hist]
+                'maker_place_pref': PREF_KO[w.director_venue_pref],
+                # 관람 기록의 평가 대상은 작품 대표 장소가 아닌 실제 관람 장소다.
+                **({'venue': w.venue} if w.record_type == UserWork.RecordType.HISTORY
+                   and w.category != Work.Category.MOVIE and w.director_venue_pref else {})}
+               for w in life + hist]
     return {'survey': survey, 'records': records}
 
 
