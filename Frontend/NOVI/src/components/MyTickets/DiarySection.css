@@ -1,4 +1,37 @@
-.mt-diary-section__body { white-space:pre-wrap; font-size:14px; line-height:2; margin:23px 0 13px; overflow-wrap:anywhere; }
+.mt-diary-section__head {
+  display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+  padding-bottom:12px; border-bottom:1px dashed #dcd6f1;
+}
+.mt-diary-section__label { margin:0; color:#6a5ab4; font-size:12px; font-weight:700; }
+.mt-diary-section__date {
+  color:#5b6078; font:400 14px/1.4 var(--font-serif,'Gowun Batang',serif); white-space:nowrap;
+}
+
+.mt-diary-section__body {
+  margin:18px 0 13px;
+  padding:20px 24px 20px 62px;
+  border:1px solid #e3e6f2; border-radius:18px;
+  background-color:#fdfcff;
+  background-image:
+    linear-gradient(to right, transparent 45px, #ead7e3 45px, #ead7e3 46px, transparent 46px),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 31px, #e7e3f4 31px, #e7e3f4 32px);
+  background-position:0 0, 0 20px;
+  color:#262a4a;
+  font:400 15px/32px var(--font-serif,'Gowun Batang',serif);
+  white-space:pre-wrap; word-break:keep-all; overflow-wrap:anywhere;
+}
 .mt-diary-section__body.is-preview { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
 .mt-diary-section__actions { display:flex; gap:20px; align-items:center; }
 .mt-diary-section__actions button, .mt-diary-section__actions a { font-size:13px; text-decoration:underline; color:#6553aa; background:transparent; border:0; font-weight:700; cursor:pointer; padding:0; }
+
+@media (max-width:860px) {
+  .mt-diary-section__body {
+    padding-left:42px;
+    background-image:
+      linear-gradient(to right, transparent 29px, #ead7e3 29px, #ead7e3 30px, transparent 30px),
+      repeating-linear-gradient(to bottom, transparent 0, transparent 31px, #e7e3f4 31px, #e7e3f4 32px);
+  }
+}
+@media (max-width:590px) {
+  .mt-diary-section__head { flex-direction:column; align-items:flex-start; gap:4px; }
+}
