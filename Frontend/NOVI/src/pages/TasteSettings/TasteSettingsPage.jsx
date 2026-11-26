@@ -181,8 +181,21 @@ export default function TasteSettingsPage() {
             {success && <p className="ts-notice ts-notice--success" role="status">{success}</p>}
           </section>
           <section className="ts-panel" aria-labelledby="ts-favorites-title">
-            <div className="ts-section-head"><h2 id="ts-favorites-title">내 인생작 {favorites.length}개</h2><span>가입할 때 고른 작품이에요 · 이 화면에서는 수정할 수 없어요</span></div>
-            {favorites.length === 0 ? <p className="ts-no-favorites">등록된 인생작이 없어요.</p> : <ol className="ts-favorites">
+              <div className="ts-section-head">
+                <h2 id="ts-favorites-title">내 인생작 {favorites.length}개</h2>
+                <div className="ts-section-head__side">
+                  <span>{changedCount ? '선택 기준 변경 사항을 먼저 저장해 주세요' : '수정하면 다음 추천부터 반영돼요'}</span>
+                  <button
+                    type="button"
+                    className="ts-button"
+                    disabled={saving || changedCount > 0}
+                    onClick={() => navigate('/onboarding?step=works&from=settings')}
+                  >
+                    인생작 수정
+                  </button>
+                </div>
+              </div>            
+              {favorites.length === 0 ? <p className="ts-no-favorites">등록된 인생작이 없어요.</p> : <ol className="ts-favorites">
               {favorites.map((work, index) => {
                 const evaluation = preferences.find(row => String(row.item_id) === String(work.item_id))
                 const positive = evaluation?.ratings?.filter(r => Number(r.preference) === 1) || []

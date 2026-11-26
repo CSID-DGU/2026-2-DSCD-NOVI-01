@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Logo from '../../components/Logo.jsx'
 import { ONBOARDING_DEMO, getWorkDetail, saveOnboarding, searchWorks } from '../../api/works.js'
 import { loadSavedOnboardingDraft } from '../../api/onboardingRestore.js'
@@ -32,6 +32,8 @@ const DOMAINS = [
 const INITIAL_CRITERIA = Object.fromEntries(DOMAINS.map((domain) => [domain.key, {
   genre: 70, actor: 60, director_venue: 50,
 }]))
+
+const RETURN_PATHS = { settings: '/settings' }
 
 function SearchIcon() {
   return <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="7" stroke="currentColor" strokeWidth="1.8"/><path d="m16 16 5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
@@ -70,7 +72,10 @@ function PreferenceChip({ label, vote, onVote }) {
 
 function OnboardingPage() {
   const navigate = useNavigate()
-  const [stage, setStage] = useState(1)
+  const [searchParams] = useSearchParams()
+  const returnPath = RETURN_PATHS[searchParams.get('from')] || null
+  const editWorks = searchParams.get('step') === 'works' && returnPath !== null
+  const [stage, setStage] = useState(editWorks ? 2 : 1)
   const [domainIndex, setDomainIndex] = useState(0)
   const [criteria, setCriteria] = useState(INITIAL_CRITERIA)
   const [chosen, setChosen] = useState([])
@@ -180,8 +185,17 @@ function OnboardingPage() {
   }
   function removeWork(id) {
     setChosen((prev) => prev.filter((work) => work.id !== id))
-    setVotes({}) // 작품 구성이 바뀌면 기존 투표의 잘못된 재사용을 방지
+    setVotes((prev) => Object.fromEntries(
+      Object.entries(prev).filter(([key]) => {
+        try {
+          return String(JSON.parse(key)[0]) !== String(id)
+        } catch {
+          return true
+        }
+      }),
+    ))
   }
+  
   function setVote(workId, type, value, vote) {
     const key = JSON.stringify([workId, type, value])
     setVotes((prev) => {
@@ -217,7 +231,10 @@ function OnboardingPage() {
     }
     try {
       await saveOnboarding(payload)
-      // 취향 작품 5개 저장이 성공한 뒤에만 메인 화면에서 평가 시연 팝업을 엽니다.
+      if (editWorks) {
+        navigate(returnPath, { replace: true })
+        return
+      }
       sessionStorage.setItem('novi-evaluation-pending-v1', '1')
       navigate('/home')
     }
@@ -316,8 +333,14 @@ function OnboardingPage() {
               {!query.trim() && <p className="onb-empty">작품명을 입력하면 검색 결과가 여기에 나타나요.</p>}
             </div>
           </section>
-          <div className="onb-actions"><button type="button" className="onb-btn onb-btn--outline" onClick={() => { setStage(1); setDomainIndex(3) }}>이전</button><button type="button" className="onb-btn onb-btn--primary" disabled={chosen.length === 0} onClick={() => { setStage(3); setWorkIndex(0) }}>선택하고 다음 ({chosen.length} / 5)</button></div>
-        </>}
+          <div className="onb-actions">
+            <button type="button" className="onb-btn onb-btn--outline" onClick={() => {
+              if (editWorks) { navigate(returnPath); return }
+              setStage(1); setDomainIndex(3)
+            }}>{editWorks ? '취소' : '이전'}</button>
+            <button type="button" className="onb-btn onb-btn--primary" disabled={chosen.length === 0} onClick={() => { setStage(3); setWorkIndex(0) }}>선택하고 다음 ({chosen.length} / 5)</button>
+          </div>        
+          </>}
         {stage === 3 && <>
           <h1>이 작품의 어떤 점이 좋았나요?</h1>
           <p className="onb-subtitle">각 요소에 대해 좋아요 또는 싫어요를 선택해 주세요. 선택하지 않으면 0점으로 반영돼요.</p>

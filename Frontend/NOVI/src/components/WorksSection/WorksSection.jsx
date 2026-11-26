@@ -15,7 +15,7 @@ function WorksSection() {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [items, setItems] = useState([])
-  const [count, setCount] = useState(0)
+  // const [count, setCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
@@ -36,7 +36,7 @@ function WorksSection() {
       .then((data) => {
         if (!controller.signal.aborted) {
           setItems(data.items)
-          setCount(data.count)
+          // setCount(data.count)
         }
       })
       .catch((err) => {
@@ -59,12 +59,12 @@ function WorksSection() {
     <section className="novi-works-section" aria-labelledby="novi-works-heading">
       <div className="novi-works-section__header">
         <div>
-          <h2 id="novi-works-heading">작품 둘러보기</h2>
-          <p>내가 좋아할 다음 문화생활을 찾아보세요.</p>
+          <h2 id="novi-works-heading">인기작품 둘러보기</h2>
+          <p>분야별로 인기작을 둘러보세요.</p>
         </div>
-        <span className="novi-works-section__count">
+        {/* <span className="novi-works-section__count">
           {!loading && !error ? `${count.toLocaleString('ko-KR')}개 작품` : ''}
-        </span>
+        </span> */}
       </div>
 
       <div className="novi-works-section__toolbar">
@@ -81,14 +81,14 @@ function WorksSection() {
             </button>
           ))}
         </div>
-        <input
+        {/* <input
           className="novi-works-section__search"
           type="search"
           aria-label="작품 제목 검색"
           placeholder="작품 제목 검색"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-        />
+        /> */}
       </div>
 
       {loading ? (
