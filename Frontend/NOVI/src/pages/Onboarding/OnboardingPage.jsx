@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Logo from '../../components/Logo.jsx'
 import { ONBOARDING_DEMO, getWorkDetail, saveOnboarding, searchWorks } from '../../api/works.js'
 import { loadSavedOnboardingDraft } from '../../api/onboardingRestore.js'
@@ -33,6 +33,8 @@ const INITIAL_CRITERIA = Object.fromEntries(DOMAINS.map((domain) => [domain.key,
   genre: 70, actor: 60, director_venue: 50,
 }]))
 
+const RETURN_PATHS = { settings: '/settings' }
+
 function SearchIcon() {
   return <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="7" stroke="currentColor" strokeWidth="1.8"/><path d="m16 16 5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
 }
@@ -50,11 +52,28 @@ function Progress({ stage }) {
   </nav>
 }
 
-function WorkSlot({ index, work, active, onRemove }) {
+// victory: 슬롯 버튼용 아이콘 (기존 텍스트 × 대신 SVG 사용)
+function ChevronIcon({ dir }) {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={dir === 'left' ? 'm15 6-6 6 6 6' : 'm9 6 6 6-6 6'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+}
+function CloseIcon() {
+  return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
+}
+
+function WorkSlot({ index, work, active, onRemove, onMove, canMoveLeft, canMoveRight }) {
   return <div className={`onb-work-slot ${work ? 'is-filled' : ''} ${active ? 'is-active' : ''}`}>
-    <span className="onb-work-slot__top">{index + 1}{work ? ` · ${work.category}` : ''}</span>
+    <span className="onb-work-slot__top">
+      <span className="onb-work-slot__rank">{index + 1}</span>
+      {work && <span className="onb-work-slot__category">{work.category}</span>}
+    </span>
     <strong>{work ? work.title : active ? '작품 선택' : '비어 있음'}</strong>
-    {work && <button type="button" aria-label={`${work.title} 선택 취소`} className="onb-work-slot__remove" onClick={onRemove}>×</button>}
+    {work && <>
+      <button type="button" aria-label={`${work.title} 선택 취소`} className="onb-work-slot__remove" onClick={onRemove}><CloseIcon /></button>
+      <div className="onb-work-slot__moves">
+        <button type="button" className="onb-work-slot__move" aria-label={`${work.title} 순위 올리기`} disabled={!canMoveLeft} onClick={() => onMove(-1)}><ChevronIcon dir="left" /></button>
+        <button type="button" className="onb-work-slot__move" aria-label={`${work.title} 순위 내리기`} disabled={!canMoveRight} onClick={() => onMove(1)}><ChevronIcon dir="right" /></button>
+      </div>
+    </>}
   </div>
 }
 
@@ -70,7 +89,10 @@ function PreferenceChip({ label, vote, onVote }) {
 
 function OnboardingPage() {
   const navigate = useNavigate()
-  const [stage, setStage] = useState(1)
+  const [searchParams] = useSearchParams()
+  const returnPath = RETURN_PATHS[searchParams.get('from')] || null
+  const editWorks = searchParams.get('step') === 'works' && returnPath !== null
+  const [stage, setStage] = useState(editWorks ? 2 : 1)
   const [domainIndex, setDomainIndex] = useState(0)
   const [criteria, setCriteria] = useState(INITIAL_CRITERIA)
   const [chosen, setChosen] = useState([])
@@ -180,8 +202,27 @@ function OnboardingPage() {
   }
   function removeWork(id) {
     setChosen((prev) => prev.filter((work) => work.id !== id))
-    setVotes({}) // 작품 구성이 바뀌면 기존 투표의 잘못된 재사용을 방지
+    setVotes((prev) => Object.fromEntries(
+      Object.entries(prev).filter(([key]) => {
+        try {
+          return String(JSON.parse(key)[0]) !== String(id)
+        } catch {
+          return true
+        }
+      }),
+    ))
   }
+  
+  function moveWork(from, delta) {
+    setChosen((prev) => {
+      const to = from + delta
+      if (to < 0 || to >= prev.length) return prev
+      const next = [...prev]
+      ;[next[from], next[to]] = [next[to], next[from]]
+      return next
+    })
+  }
+
   function setVote(workId, type, value, vote) {
     const key = JSON.stringify([workId, type, value])
     setVotes((prev) => {
@@ -217,7 +258,10 @@ function OnboardingPage() {
     }
     try {
       await saveOnboarding(payload)
-      // 취향 작품 5개 저장이 성공한 뒤에만 메인 화면에서 평가 시연 팝업을 엽니다.
+      if (editWorks) {
+        navigate(returnPath, { replace: true })
+        return
+      }
       sessionStorage.setItem('novi-evaluation-pending-v1', '1')
       navigate('/home')
     }
@@ -297,8 +341,11 @@ function OnboardingPage() {
           <h1>인생작 5개를 알려주세요</h1>
           <p className="onb-subtitle">가장 좋아하는 작품부터 순서대로, 인생작을 최대 5개 골라주세요.</p>
           <div className="onb-work-slots" aria-label="선택한 인생 작품">
-            {Array.from({ length:5 }, (_, index) => <WorkSlot key={index} index={index} work={chosen[index]} active={index === chosen.length} onRemove={() => removeWork(chosen[index].id)} />)}
-          </div>
+                {Array.from({ length:5 }, (_, index) => <WorkSlot key={index} index={index} work={chosen[index]} active={index === chosen.length}
+              onRemove={() => removeWork(chosen[index].id)}
+              onMove={(delta) => moveWork(index, delta)}
+              canMoveLeft={index > 0}
+              canMoveRight={index < chosen.length - 1} />)}          </div>
           <section className="onb-search-card">
             <div className="onb-search-card__header"><strong>{chosen.length === 5 ? '다섯 작품을 모두 선택했어요' : `${['첫','두','세','네','다섯'][chosen.length]} 번째 인생작`}</strong><small>영화, 연극, 뮤지컬, 전시를 한 번에 검색합니다.</small></div>
             <label className="onb-search-box"><SearchIcon /><input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="작품 제목을 입력하세요" aria-label="작품 검색" disabled={chosen.length === 5} /></label>
@@ -316,8 +363,14 @@ function OnboardingPage() {
               {!query.trim() && <p className="onb-empty">작품명을 입력하면 검색 결과가 여기에 나타나요.</p>}
             </div>
           </section>
-          <div className="onb-actions"><button type="button" className="onb-btn onb-btn--outline" onClick={() => { setStage(1); setDomainIndex(3) }}>이전</button><button type="button" className="onb-btn onb-btn--primary" disabled={chosen.length === 0} onClick={() => { setStage(3); setWorkIndex(0) }}>선택하고 다음 ({chosen.length} / 5)</button></div>
-        </>}
+          <div className="onb-actions">
+            <button type="button" className="onb-btn onb-btn--outline" onClick={() => {
+              if (editWorks) { navigate(returnPath); return }
+              setStage(1); setDomainIndex(3)
+            }}>{editWorks ? '취소' : '이전'}</button>
+            <button type="button" className="onb-btn onb-btn--primary" disabled={chosen.length === 0} onClick={() => { setStage(3); setWorkIndex(0) }}>선택하고 다음 ({chosen.length} / 5)</button>
+          </div>        
+          </>}
         {stage === 3 && <>
           <h1>이 작품의 어떤 점이 좋았나요?</h1>
           <p className="onb-subtitle">각 요소에 대해 좋아요 또는 싫어요를 선택해 주세요. 선택하지 않으면 0점으로 반영돼요.</p>
