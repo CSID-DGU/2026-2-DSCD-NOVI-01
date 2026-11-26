@@ -2,7 +2,7 @@ import PreferenceChip from './PreferenceChip.jsx'
 import './WorkPreferenceForm.css'
 
 /**
- * 작품 상세 데이터의 장르/감독(연출·작가)/배우를 표시하는 공통 입력 UI.
+ * 작품 상세 데이터의 장르/감독(연출·작가)/배우/장소를 표시하는 공통 입력 UI.
  *
  * Props:
  * - work: { id, category, genres: [], directors: [], actors: [] }
@@ -10,7 +10,7 @@ import './WorkPreferenceForm.css'
  * - onVote(workId, type, value, nextVote): void
  *
  * 상태관리 / API 조회 / DB 저장은 이 컴포넌트를 사용하는 페이지에서 수행합니다.
- * 1단계/3단계 모두 제외하기로 한 '장소'는 표시하지 않습니다.
+ * 장소는 호출 페이지에서 venues를 전달한 경우에만 표시합니다.
  */
 function WorkPreferenceForm({ work, getVote, onVote }) {
   if (!work) return null
@@ -19,10 +19,11 @@ function WorkPreferenceForm({ work, getVote, onVote }) {
     ['genre', '장르', work.genres ?? []],
     ['director', work.category === '전시' ? '작가' : work.category === '영화' ? '감독' : '연출 / 제작', work.directors ?? []],
     ['actor', work.category === '전시' ? '참여 작가 / 인물' : '배우', work.actors ?? []],
+    ['venue', '장소', work.venues ?? []],
   ].filter(([, , tags]) => tags.length > 0)
 
   if (preferenceGroups.length === 0) {
-    return <p className="work-pref-empty">이 작품에는 평가할 수 있는 장르·감독·배우 정보가 등록되지 않았어요. 다음 작품으로 넘어가도 됩니다.</p>
+    return <p className="work-pref-empty">이 작품에는 평가할 수 있는 장르·감독·배우·장소 정보가 등록되지 않았어요. 다음 작품으로 넘어가도 됩니다.</p>
   }
 
   return (

@@ -143,7 +143,9 @@ export default function TicketResultPage({ manual = false, onRegister }) {
     updateEntry((entry) => ({
       ticket: { ...entry.ticket, [key]: value, ...(workChanged ? { imageUrl: '' } : {}) },
       ...(workChanged ? { matchedWorkId: null, matchStatus: '' } : {}),
-      ...(key === 'category' ? { votes: {} } : {}),
+      ...(key === 'category' ? { votes: {} } : key === 'venue' && String(value).trim() !== entry.ticket.venue.trim() ? {
+        votes: Object.fromEntries(Object.entries(entry.votes).filter(([key]) => !key.startsWith('venue\u0000'))),
+      } : {}),
     }))
     setIsSample(false)
     setNotice('')
@@ -191,7 +193,8 @@ export default function TicketResultPage({ manual = false, onRegister }) {
     genres: commaList(ticket.genres),
     directors: commaList(ticket.directors),
     actors: commaList(ticket.actors).slice(0, 5),
-  }), [activeIndex, ticket.category, ticket.genres, ticket.directors, ticket.actors])
+    venues: ticket.category !== 'movie' && ticket.venue.trim() ? [ticket.venue.trim()] : [],
+  }), [activeIndex, ticket.category, ticket.genres, ticket.directors, ticket.actors, ticket.venue])
 
   function getVote(_id, type, value) { return votes[`${type}\u0000${value}`] ?? 0 }
   function setVote(_id, type, value, nextVote) {
@@ -212,6 +215,7 @@ export default function TicketResultPage({ manual = false, onRegister }) {
       genre_ratings: makeRatings('genre', preferenceWork.genres),
       actor_ratings: makeRatings('actor', preferenceWork.actors),
       director_ratings: makeRatings('director', preferenceWork.directors),
+      venue_pref: preferenceWork.venues.length ? getVote(preferenceWork.id, 'venue', preferenceWork.venues[0]) : 0,
     }
   }
 

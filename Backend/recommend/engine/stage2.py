@@ -135,7 +135,12 @@ def prepare_user(user, res):
             elif pv == '싫어요': p_cnt[n][1] += 1
         mp = r['maker_place_pref']
         if mp in ('좋아요', '싫어요'):
-            for n in res.db.get((c, r['item_id']), {}).get('makers', []):
+            if c != '영화' and r.get('kind') == 'history' and 'venue' in r:
+                actual_venue = norm_venue(r['venue'])
+                makers = [actual_venue] if actual_venue else []
+            else:
+                makers = res.db.get((c, r['item_id']), {}).get('makers', [])
+            for n in makers:
                 m_cnt[n][0 if mp == '좋아요' else 1] += 1
     side = lambda cnt: ({k for k, (a, b) in cnt.items() if a > b}, {k for k, (a, b) in cnt.items() if b > a})
     liked_p, disliked_p = side(p_cnt)

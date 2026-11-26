@@ -47,7 +47,8 @@ def user_from_json(d):
         u.records.append({"kind": r["kind"], "rank": str(r.get("rank", "")), "category": r["category"], "item_id": str(r["item_id"]),
                           "genres": [(e["name"], e["pref"]) for e in r.get("genres", [])][:5],
                           "persons": [(e["name"], e["pref"]) for e in r.get("persons", [])][:5],
-                          "maker_place_pref": r.get("maker_place_pref", "")})
+                          "maker_place_pref": r.get("maker_place_pref", ""),
+                          **({"venue": r["venue"]} if "venue" in r else {})})
     return u
 
 

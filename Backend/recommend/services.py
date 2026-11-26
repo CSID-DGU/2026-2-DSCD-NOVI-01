@@ -224,7 +224,11 @@ def build_stage2_input(user):
     hist = sorted((w for w in works if w.record_type == UserWork.RecordType.HISTORY), key=lambda w: w.input_order)
     records = [{'kind': w.record_type, 'category': CATEGORY_KO[w.category], 'item_id': w.item_id,
                 'genres': _ratings(w.genre_ratings), 'persons': _ratings(w.actor_ratings),
-                'maker_place_pref': PREF_KO[w.director_venue_pref]} for w in life + hist]
+                'maker_place_pref': PREF_KO[w.director_venue_pref],
+                # 관람 기록의 평가 대상은 작품 대표 장소가 아닌 실제 관람 장소다.
+                **({'venue': w.venue} if w.record_type == UserWork.RecordType.HISTORY
+                   and w.category != Work.Category.MOVIE and w.director_venue_pref else {})}
+               for w in life + hist]
     return {'survey': survey, 'records': records}
 
 
