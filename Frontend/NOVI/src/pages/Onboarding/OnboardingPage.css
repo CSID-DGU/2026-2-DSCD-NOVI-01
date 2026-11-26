@@ -18,7 +18,7 @@
 .onb-category-tabs { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 26px; }
 .onb-category-tab { min-width: 68px; height: 44px; padding: 0 22px; border: 1px solid #dbe1f1; border-radius: 24px; background: white; color: #2e3157; font-size: 13px; font-weight: 700; cursor: pointer; }
 .onb-category-tab.is-selected { background: #eeeafb; border-color: #8470da; color: #6555b4; }
-.onb-category-tab:focus-visible, .onb-btn:focus-visible, .onb-result:focus-visible, .onb-vote-action:focus-visible, .onb-work-slot__remove:focus-visible { outline: 3px solid #947df1; outline-offset: 3px; }
+.onb-category-tab:focus-visible, .onb-btn:focus-visible, .onb-result:focus-visible, .onb-vote-action:focus-visible, .onb-work-slot__remove:focus-visible, .onb-work-slot__move:focus-visible { outline: 3px solid #947df1; outline-offset: 3px; }
 .onb-criteria-card { background: white; border-radius: 28px; padding: 28px 32px 20px; }
 .onb-criteria-card__head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 22px; border-bottom: 1px solid #e8eaf3; }
 .onb-criteria-card__head h2 { font: 400 25px/1.4 var(--font-serif, serif); margin: 0; }
@@ -46,13 +46,23 @@
 .onb-btn--outline { color: #313758; border: 1px solid #dce2f1; background: white; }
 /* 2단계: 최대 다섯 작품 */
 .onb-work-slots { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 0 0 24px; }
-.onb-work-slot { position: relative; min-height: 74px; min-width: 0; padding: 14px 15px; border-radius: 18px; background: transparent; border: 1.5px dashed #d6dced; color: #9ba3b8; }
+/* victory: 슬롯 디자인 개선 - 순위 배지, 둥근 삭제 버튼, 하단 순서 이동 버튼 */
+.onb-work-slot { position: relative; display: flex; flex-direction: column; min-height: 108px; min-width: 0; padding: 12px 12px 10px; border-radius: 18px; background: transparent; border: 1.5px dashed #d6dced; color: #9ba3b8; transition: background .15s, border-color .15s, box-shadow .15s; }
 .onb-work-slot.is-filled { background: #dceaf8; border: 1px solid #dceaf8; color: #283a61; }
+.onb-work-slot.is-filled:hover { box-shadow: 0 6px 16px rgba(60, 80, 140, .12); }
 .onb-work-slot.is-active { background: white; border: 1.5px solid #7866c7; color: #272d4b; }
-.onb-work-slot__top { display: block; color: inherit; margin-bottom: 7px; font-size: 11px; }
+.onb-work-slot__top { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding-right: 24px; min-width: 0; }
+.onb-work-slot__rank { flex: 0 0 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; border: 1px dashed #cfd5e8; font-size: 11px; font-weight: 700; color: inherit; }
+.onb-work-slot.is-filled .onb-work-slot__rank { border: 0; background: #fff; color: #6a58b5; }
+.onb-work-slot.is-active .onb-work-slot__rank { border: 0; background: #7866c7; color: #fff; }
+.onb-work-slot__category { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .onb-work-slot strong { display: block; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.onb-work-slot__remove { position: absolute; top: 5px; right: 6px; width: 19px; height: 19px; display: grid; place-items: center; background: transparent; color: #53617f; border: 0; border-radius: 50%; line-height: 1; cursor: pointer; font-size: 17px; }
-.onb-work-slot__remove:hover { background: rgba(60, 80, 130, .12); }
+.onb-work-slot__remove { position: absolute; top: 9px; right: 9px; width: 22px; height: 22px; display: grid; place-items: center; padding: 0; background: rgba(255, 255, 255, .7); color: #6b7592; border: 0; border-radius: 50%; cursor: pointer; transition: background .15s, color .15s; }
+.onb-work-slot__remove:hover { background: #fff; color: #b8475f; }
+.onb-work-slot__moves { display: flex; gap: 4px; margin-top: auto; padding-top: 10px; }
+.onb-work-slot__move { flex: 1; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: rgba(255, 255, 255, .65); color: #4b5a86; cursor: pointer; transition: background .15s; }
+.onb-work-slot__move:hover:not(:disabled) { background: #fff; }
+.onb-work-slot__move:disabled { opacity: .35; cursor: default; }
 .onb-search-card { padding: 34px 32px 40px; background: white; border-radius: 28px; }
 .onb-search-card__header { display: flex; flex-direction: column; gap: 7px; margin-bottom: 18px; }
 .onb-search-card__header strong { font-size: 14px; }
@@ -111,9 +121,13 @@
   .onb-criteria-card { padding: 18px 22px; }
   .onb-criterion { grid-template-columns: 1fr; min-height: 110px; gap: 10px; }
   .onb-work-slots { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-  .onb-work-slot { padding: 8px 6px; min-height: 69px; border-radius: 12px; }
+  .onb-work-slot { padding: 8px 7px 7px; min-height: 96px; border-radius: 12px; }
   .onb-work-slot strong { font-size: 11px; }
-  .onb-work-slot__top { font-size: 10px; }
+  .onb-work-slot__top { font-size: 10px; gap: 4px; padding-right: 20px; }
+  .onb-work-slot__rank { flex-basis: 18px; height: 18px; font-size: 10px; }
+  .onb-work-slot__category { font-size: 10px; }
+  .onb-work-slot__remove { top: 6px; right: 6px; width: 20px; height: 20px; }
+  .onb-work-slot__move { height: 22px; }
   .onb-search-card { padding: 22px 16px; }
   .onb-vote-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

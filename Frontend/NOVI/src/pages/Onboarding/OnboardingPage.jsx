@@ -52,11 +52,28 @@ function Progress({ stage }) {
   </nav>
 }
 
-function WorkSlot({ index, work, active, onRemove }) {
+// victory: 슬롯 버튼용 아이콘 (기존 텍스트 × 대신 SVG 사용)
+function ChevronIcon({ dir }) {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={dir === 'left' ? 'm15 6-6 6 6 6' : 'm9 6 6 6-6 6'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+}
+function CloseIcon() {
+  return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
+}
+
+function WorkSlot({ index, work, active, onRemove, onMove, canMoveLeft, canMoveRight }) {
   return <div className={`onb-work-slot ${work ? 'is-filled' : ''} ${active ? 'is-active' : ''}`}>
-    <span className="onb-work-slot__top">{index + 1}{work ? ` · ${work.category}` : ''}</span>
+    <span className="onb-work-slot__top">
+      <span className="onb-work-slot__rank">{index + 1}</span>
+      {work && <span className="onb-work-slot__category">{work.category}</span>}
+    </span>
     <strong>{work ? work.title : active ? '작품 선택' : '비어 있음'}</strong>
-    {work && <button type="button" aria-label={`${work.title} 선택 취소`} className="onb-work-slot__remove" onClick={onRemove}>×</button>}
+    {work && <>
+      <button type="button" aria-label={`${work.title} 선택 취소`} className="onb-work-slot__remove" onClick={onRemove}><CloseIcon /></button>
+      <div className="onb-work-slot__moves">
+        <button type="button" className="onb-work-slot__move" aria-label={`${work.title} 순위 올리기`} disabled={!canMoveLeft} onClick={() => onMove(-1)}><ChevronIcon dir="left" /></button>
+        <button type="button" className="onb-work-slot__move" aria-label={`${work.title} 순위 내리기`} disabled={!canMoveRight} onClick={() => onMove(1)}><ChevronIcon dir="right" /></button>
+      </div>
+    </>}
   </div>
 }
 
@@ -196,6 +213,16 @@ function OnboardingPage() {
     ))
   }
   
+  function moveWork(from, delta) {
+    setChosen((prev) => {
+      const to = from + delta
+      if (to < 0 || to >= prev.length) return prev
+      const next = [...prev]
+      ;[next[from], next[to]] = [next[to], next[from]]
+      return next
+    })
+  }
+
   function setVote(workId, type, value, vote) {
     const key = JSON.stringify([workId, type, value])
     setVotes((prev) => {
@@ -314,8 +341,11 @@ function OnboardingPage() {
           <h1>인생작 5개를 알려주세요</h1>
           <p className="onb-subtitle">가장 좋아하는 작품부터 순서대로, 인생작을 최대 5개 골라주세요.</p>
           <div className="onb-work-slots" aria-label="선택한 인생 작품">
-            {Array.from({ length:5 }, (_, index) => <WorkSlot key={index} index={index} work={chosen[index]} active={index === chosen.length} onRemove={() => removeWork(chosen[index].id)} />)}
-          </div>
+                {Array.from({ length:5 }, (_, index) => <WorkSlot key={index} index={index} work={chosen[index]} active={index === chosen.length}
+              onRemove={() => removeWork(chosen[index].id)}
+              onMove={(delta) => moveWork(index, delta)}
+              canMoveLeft={index > 0}
+              canMoveRight={index < chosen.length - 1} />)}          </div>
           <section className="onb-search-card">
             <div className="onb-search-card__header"><strong>{chosen.length === 5 ? '다섯 작품을 모두 선택했어요' : `${['첫','두','세','네','다섯'][chosen.length]} 번째 인생작`}</strong><small>영화, 연극, 뮤지컬, 전시를 한 번에 검색합니다.</small></div>
             <label className="onb-search-box"><SearchIcon /><input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="작품 제목을 입력하세요" aria-label="작품 검색" disabled={chosen.length === 5} /></label>
