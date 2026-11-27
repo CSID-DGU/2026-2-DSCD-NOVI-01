@@ -100,6 +100,25 @@ def _prefilter(model, query, categories):
     return rows[:MAX_ROWS]
 
 
+# OCR이 획 하나 차이로 자주 헷갈리는 모음 (예: 투셰 → 투세)
+LOOK_ALIKE_VOWELS = ('ㅏㅑ', 'ㅓㅕ', 'ㅗㅛ', 'ㅜㅠ', 'ㅐㅒ', 'ㅔㅖ', 'ㅐㅔ')
+
+
+def look_alikes(query):
+    """query에서 한 글자의 모음만 헷갈리기 쉬운 모음으로 바꾼 말들."""
+    variants = set()
+    for index, char in enumerate(query):
+        code = ord(char) - 0xAC00
+        if not 0 <= code < 11172:
+            continue
+        cho, jung, jong = code // 588, code % 588 // 28, code % 28
+        for pair in LOOK_ALIKE_VOWELS:
+            if _JUNG[jung] in pair:
+                other = _JUNG.index(pair.replace(_JUNG[jung], ''))
+                variants.add(query[:index] + chr(0xAC00 + cho * 588 + other * 28 + jong) + query[index + 1:])
+    return variants
+
+
 def find_candidates(title, category=None, limit=MAX_CANDIDATES):
     """제목과 비슷한 작품 후보 [(점수, 작품)], 점수 높은 순. category를 주면 그 분야만 찾는다.
 
@@ -119,6 +138,15 @@ def find_candidates(title, category=None, limit=MAX_CANDIDATES):
             score = _score(query, query_jamo, squeezed, squeezed_jamo)
             if score >= MIN_SCORE:
                 scored.append((score, model, pk))
+    if not any(score >= CONFIDENT_SCORE for score, _, _ in scored):
+        # 두 글자 제목은 한 글자만 틀려도 두 글자 조각이 안 겹쳐 위에서 못 찾는다. 모음 하나를 바꾼 말과 제목이 똑같은 작품을 더한다.
+        # 짐작이므로 바로 연결하지 않는다 (점수를 CONFIDENT_SCORE 아래로 둔다)
+        variants, seen = look_alikes(query), {(model, pk) for _, model, pk in scored}
+        for model in (Work, Production):
+            for pk, work_category, squeezed, squeezed_jamo in _titles()[model]:
+                if work_category in wanted and squeezed in variants and (model, pk) not in seen:
+                    score = min(similarity(query, squeezed), CONFIDENT_SCORE - 0.01)
+                    scored.append((max(score, MIN_SCORE), model, pk))
     scored.sort(key=lambda s: -s[0])
     top = scored[:limit]
     works = {}

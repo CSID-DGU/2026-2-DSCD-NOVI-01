@@ -188,6 +188,21 @@ class ExtractDraftsTests(SimpleTestCase):
         drafts = self.draft(['오디세이', '2026.09.12'], [{'title': '오디세이', 'date': None}])
         self.assertEqual(drafts[0]['viewed_at'], '2026-09-12')
 
+    def test_listing_screen_never_uses_its_only_date_as_the_viewing_date(self):
+        lines = ['티켓오픈', '투셰 1차 티켓오픈', '오픈일시 26.09.12']
+        for answered in (None, '2026-09-12'):   # LLM이 오픈일을 관람일로 답해도 비운다
+            drafts = self.draft(lines, [{'title': '투셰', 'record': False, 'date': answered}])
+            self.assertEqual([(d['title'], d['viewed_at']) for d in drafts], [('투셰', None)])
+        self.assertEqual(self.draft(lines, [{'title': '투셰', 'record': True}])[0]['viewed_at'], '2026-09-12')
+
+    def test_poster_english_is_dropped_only_from_a_listing_with_korean_titles(self):
+        lines = ['집에 사는 몬스터', 'THE MONSTER', '투셰']
+        titles = lambda items: [d['title'] for d in self.draft(lines, items)]
+        both = [{'title': '집에 사는 몬스터'}, {'title': 'THE MONSTER'}]
+        self.assertEqual(titles([dict(item, record=False) for item in both]), ['집에 사는 몬스터'])
+        self.assertEqual(titles([dict(item, record=True) for item in both]), ['집에 사는 몬스터', 'THE MONSTER'])
+        self.assertEqual(titles([{'title': 'THE MONSTER', 'record': False}]), ['THE MONSTER'])   # 영어뿐인 화면은 그대로
+
     def test_duplicates_and_garbage_items_are_dropped(self):
         drafts = self.draft(['오디세이 2026.09.12'], [{'title': '오디세이'}, {'title': '오 디세이'}, 'x', {'title': 5}, {}])
         self.assertEqual(len(drafts), 1)
@@ -220,6 +235,25 @@ class LlmTests(SimpleTestCase):
         with mock.patch('ocr.llm._get_client', return_value=client), self.settings(OCR_LLM_MODEL=model):
             result = llm.ask_llm(lines)
         return result, client.chat.completions.create.call_args.kwargs
+
+    def answers(self, *contents):
+        replies = [mock.Mock(**{'choices': [mock.Mock(**{'message.content': content})]}) for content in contents]
+        client = mock.Mock(**{'chat.completions.create.side_effect': replies})
+        with mock.patch('ocr.llm._get_client', return_value=client):
+            result = llm.ask_llm(['예매자 홍길동', '투셰'])
+        return result, [call.kwargs['messages'][0]['content'] for call in client.chat.completions.create.call_args_list]
+
+    def test_ticket_with_a_record_is_asked_only_once(self):
+        result, prompts = self.answers('{"items": [{"title": "투셰"}]}')
+        self.assertEqual((result, len(prompts)), ([{'title': '투셰'}], 1))
+
+    def test_screen_without_a_record_is_asked_again_as_a_listing(self):
+        result, prompts = self.answers('{"items": []}', '{"items": [{"title": "투셰", "date": "2026-10-27"}]}')
+        self.assertEqual(result, [{'title': '투셰', 'date': '2026-10-27', 'record': False}])
+        self.assertEqual(len(prompts), 2)
+        self.assertIn('티켓 오픈 안내', prompts[1])
+        for prompt in prompts:
+            self.assertNotIn('홍길동', prompt)
 
     def test_request_sends_only_masked_text(self):
         _, request = self.ask(['ID 홍길동', '예매자: 김철수', '예매번호 1234567890123', '연락처 010-1234-5678', '오디세이'])
@@ -293,6 +327,19 @@ class FindCandidatesTests(TestCase):
 
     def attach(self, title, category=None):
         return match.attach_candidates([{'title': title, 'viewed_at': None, 'venue': '', 'category': category}])[0]
+
+    def test_look_alike_vowel_finds_a_short_title_but_does_not_link_it(self):
+        touche = Production.objects.create(category='play', key='투셰', code='P00002', title='투셰')
+        Work.objects.create(category='movie', source_id='21', title='투사', popularity=99)   # ㅔ와 ㅏ는 헷갈리는 짝이 아니다
+        draft = self.attach('투세')
+        self.assertEqual((draft['match_status'], draft['work_id']), (match.AMBIGUOUS, None))
+        self.assertEqual([c['id'] for c in draft['candidates']], [f'play:{touche.pk}'])
+        self.assertEqual(match.find_candidates('투세', 'movie'), [])   # 분야를 정하면 그 분야만
+
+    def test_exact_title_is_not_mixed_with_look_alikes(self):
+        Production.objects.create(category='play', key='투셰', code='P00002', title='투셰')
+        exact = Work.objects.create(category='movie', source_id='22', title='투세')
+        self.assertEqual([work for _, work in match.find_candidates('투세')], [exact])
 
     def test_same_title_in_two_categories_is_not_auto_linked(self):
         draft = self.attach('마리 퀴리')   # 뮤지컬과 연극에 같은 제목이 있다
