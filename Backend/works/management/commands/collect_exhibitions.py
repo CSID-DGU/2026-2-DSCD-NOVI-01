@@ -50,6 +50,10 @@ class Command(BaseCommand):
         works = [w for w in works if w['source_id'] not in dropped and exhibition_key(w['title']) not in excluded]
         self.stdout.write(f'이미 지운 전시를 빼고 {len(works)}건')
 
+        # 직접 쓴 설명이 있는 전시는 설명만 빼고 갱신한다 (기간·장소 같은 정보는 계속 갱신)
+        manual = set(Work.objects.filter(category=Work.Category.EXHIBITION, plot_source=Work.MANUAL_PLOT_SOURCE)
+                     .values_list('source_id', flat=True))
+
         saved = 0
         with transaction.atomic():
             for work in works:
@@ -57,10 +61,10 @@ class Command(BaseCommand):
                 for field, limit in FIELD_LIMITS.items():
                     work[field] = work[field][:limit]
                 work['actors'] = [name[:200] for name in work['actors']]
-                if work['plot']:
+                if work['plot'] and source_id not in manual:
                     work['plot_source'] = source_id.split(':')[0]
                 else:
-                    # 다시 받아올 때 네이버로 채운 설명을 지우지 않도록
+                    # 다시 받아올 때 네이버로 채웠거나 직접 쓴 설명을 지우지 않도록
                     work.pop('plot')
                 Work.objects.update_or_create(category=Work.Category.EXHIBITION, source_id=source_id, defaults=work)
                 saved += 1

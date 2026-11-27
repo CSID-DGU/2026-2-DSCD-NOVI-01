@@ -25,6 +25,10 @@ class Work(models.Model):
     # KOPIS에서 받는 공연 카테고리. 수집·줄거리 보충·장르 태깅을 같은 방식으로 한다
     PERFORMANCE_CATEGORIES = [Category.MUSICAL, Category.PLAY]
 
+    # 팀이 확인해서 직접 쓴 줄거리의 plot_source. 수집·묶기가 API 줄거리로 덮어쓰지 않는다.
+    # API 설명이 나중에 좋아져도 반영되지 않으므로, API 것을 다시 쓰려면 이 값을 지워야 한다
+    MANUAL_PLOT_SOURCE = 'web'
+
     category = models.CharField('카테고리', max_length=10, choices=Category.choices)
     source_id = models.CharField(
         '원본 ID', max_length=80,
