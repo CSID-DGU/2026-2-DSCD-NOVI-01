@@ -104,20 +104,34 @@ def clean_title(title):
     return re.sub(r'\s+', ' ', FORMAT_MARK.sub('', title)).strip()[:TITLE_LIMIT]
 
 
+def _covered(needle, haystack):
+    """needle 중 haystack에 이어서 나오는 조각들의 글자 수. 조각의 순서는 보지 않는다. 4글자보다 짧은 조각은 우연히 겹칠 수 있어 세지 않는다."""
+    if len(needle) < 4:
+        return 0
+    block = SequenceMatcher(None, needle, haystack, autojunk=False).find_longest_match(0, len(needle), 0, len(haystack))
+    if block.size < 4:
+        return 0
+    return block.size + _covered(needle[:block.a], haystack) + _covered(needle[block.a + block.size:], haystack)
+
+
 def title_in_text(title, lines):
-    """제목의 70% 이상이 OCR 글자에 이어서 나오면 있는 것으로 본다 (OCR 오타 허용). LLM이 지어낸 제목을 거른다."""
+    """제목의 70% 이상이 OCR 글자에 있으면 있는 것으로 본다 (OCR 오타 허용). LLM이 지어낸 제목을 거른다.
+
+    이어진 한 덩어리가 70% 이상이거나, 4글자 이상 조각들을 합쳐 70% 이상이면 된다. 긴 제목은 두 줄로 나뉘고
+    기울어진 사진에서는 줄 순서가 뒤바뀌어 읽히기 때문이다.
+    """
     needle = normalize(title)
     if len(needle) < 2:
         return False
     haystack = normalize(''.join(lines))
     block = SequenceMatcher(None, needle, haystack, autojunk=False).find_longest_match(0, len(needle), 0, len(haystack))
-    return block.size >= 0.7 * len(needle)
+    return block.size >= 0.7 * len(needle) or _covered(needle, haystack) >= 0.7 * len(needle)
 
 
 def extract_drafts(lines, today, ask):
     """글자 줄 → 초안 목록 [{"title", "viewed_at", "venue", "category"}]. 작품 DB 매칭은 하지 않는다 (match.py).
 
-    ask: 글자 줄을 받아 [{"title", "venue", "date", "category"}, ...]를 돌려주는 함수 (llm.ask_llm. 테스트에서는 가짜).
+    ask: 글자 줄을 받아 [{"title", "date", "category"}, ...]를 돌려주는 함수 (llm.ask_llm. 테스트에서는 가짜).
     """
     if not lines:
         return []
@@ -138,17 +152,12 @@ def extract_drafts(lines, today, ask):
         if viewed not in dates:   # 글자에서 찾지 못한 날짜는 쓰지 않는다. 날짜가 글자에 하나뿐이면 그 날짜로 본다
             viewed = dates[0] if len(dates) == 1 else None
         category = item.get('category') if item.get('category') in CATEGORIES else None
-        venue = clean_venue(item['venue']) if isinstance(item.get('venue'), str) else ''
-        if venue and not title_in_text(venue, lines):   # 글자에 없는 장소는 쓰지 않는다
-            venue = ''
         if cinema:
             category = category or Work.Category.MOVIE
-            if category == Work.Category.MOVIE:
-                venue = venue or cinema   # 영화관 이름은 정규식이 더 정확하다
         drafts.append({
             'title': title,
             'viewed_at': viewed.isoformat() if viewed else None,
-            'venue': venue,
+            'venue': '',   # 장소는 사용자가 직접 입력한다 (2026-11-27 결정). 칸은 API 모양을 유지하려고 남긴다
             'category': category,
         })
     return drafts

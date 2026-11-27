@@ -117,17 +117,13 @@ class CinemaAndMaskTests(SimpleTestCase):
         self.assertEqual(parse.mask_personal('연락처 010-1234-5678 / 01012345678'), '연락처 ### / ###')
         self.assertEqual(parse.mask_personal('VIDEO 오디세이 2026.09.12'), 'VIDEO 오디세이 2026.09.12')   # ID가 들어간 영단어는 그대로
 
-    def test_seat_is_not_kept_in_venue(self):
-        # 좌석은 저장하지 않는다 (제안서 3.3). 상영관·공연장 이름은 남긴다
+    def test_seat_is_removed_from_cinema_line(self):
+        # 영화관 줄은 분야(영화)를 짐작하는 데 쓴다. 좌석은 남기지 않는다
         self.assertEqual(parse.find_cinema(['CGV 용산아이파크몰 4관 G열 12번']), 'CGV 용산아이파크몰 4관')
         self.assertEqual(parse.find_cinema(['메가박스 코엑스 3관 G12']), '메가박스 코엑스 3관')
-        for venue, kept in [('충무아트센터 중극장 1층 B구역 7열 2번', '충무아트센터 중극장'), ('예스24스테이지 1관', '예스24스테이지 1관'),
-                            ('LG아트센터 서울 U+스테이지', 'LG아트센터 서울 U+스테이지')]:
-            self.assertEqual(parse.clean_venue(venue), kept)
 
-    def test_title_and_venue_fit_the_save_api_limits(self):
+    def test_title_fits_the_save_api_limit(self):
         self.assertEqual(len(parse.clean_title('가' * 400)), parse.TITLE_LIMIT)
-        self.assertEqual(len(parse.clean_venue('나' * 400)), parse.VENUE_LIMIT)
 
     def test_long_numbers_are_masked_but_dates_are_kept(self):
         masked = parse.mask_numbers('예매번호 1234-5678-9012 바코드 1234567890123 전화 02-1234-5678 2026.11.19 19:30')
@@ -161,14 +157,18 @@ class ExtractDraftsTests(SimpleTestCase):
         lines = ['영화 둔:파트2', '2026.11.19(목) 19:30', 'CGV 용산아이파크몰 4관']
         drafts = self.draft(lines, [{'title': '듄: 파트2', 'date': '2026-11-19', 'category': 'movie'}])
         self.assertEqual(drafts, [{'title': '듄: 파트2', 'viewed_at': '2026-11-19',
-                                   'venue': 'CGV 용산아이파크몰 4관', 'category': 'movie'}])
+                                   'venue': '', 'category': 'movie'}])
 
-    def test_venue_from_gemma_is_kept_only_if_it_is_in_the_text(self):
-        lines = ['오디세이 2026.09.12', '블루스퀘어 신한카드홀']
-        drafts = self.draft(lines, [{'title': '오디세이', 'venue': '블루스퀘어 신한카드홀'}])
-        self.assertEqual(drafts[0]['venue'], '블루스퀘어 신한카드홀')
-        drafts = self.draft(lines, [{'title': '오디세이', 'venue': '세종문화회관 대극장'}])
-        self.assertEqual(drafts[0]['venue'], '')
+    def test_venue_is_left_for_the_user(self):
+        # 장소는 자동으로 채우지 않는다. LLM이 보내거나 영화관 줄이 있어도 비운다
+        drafts = self.draft(['오디세이 2026.09.12', 'CGV 용산'], [{'title': '오디세이', 'venue': 'CGV 용산'}])
+        self.assertEqual((drafts[0]['venue'], drafts[0]['category']), ('', 'movie'))
+
+    def test_title_split_over_two_lines_in_reverse_order_is_accepted(self):
+        lines = ['Mermafd Island', '(Sub)Chiikawa the Movfe-The Secret of the', '2026.10.14']
+        title = 'Chiikawa the Movie The Secret of the Mermaid Island'
+        self.assertEqual([d['title'] for d in self.draft(lines, [{'title': title}])], [title])
+        self.assertEqual(self.draft(lines, [{'title': 'The Lord of the Rings Return of the King'}]), [])
 
     def test_booking_list_gives_one_draft_per_work(self):
         lines = ['오디세이 2026.09.12', '위키드 2026.10.03', '결제 완료']
@@ -192,7 +192,7 @@ class ExtractDraftsTests(SimpleTestCase):
         drafts = self.draft(['오디세이 2026.09.12'], [{'title': '오디세이'}, {'title': '오 디세이'}, 'x', {'title': 5}, {}])
         self.assertEqual(len(drafts), 1)
 
-    def test_unknown_category_becomes_none_and_venue_stays_empty_without_cinema(self):
+    def test_unknown_category_becomes_none_without_cinema(self):
         drafts = self.draft(['마리 퀴리 2026.09.12'], [{'title': '마리 퀴리', 'category': 'concert'}])
         self.assertEqual((drafts[0]['category'], drafts[0]['venue']), (None, ''))
 
@@ -299,10 +299,28 @@ class FindCandidatesTests(TestCase):
         self.assertIsNone(draft['work_id'])
         self.assertEqual({c['category'] for c in draft['candidates']}, {'musical', 'play'})
 
-    def test_guessed_category_only_orders_tied_candidates(self):
-        self.assertEqual(self.attach('마리 퀴리', 'play')['candidates'][0]['category'], 'play')
-        self.assertEqual(self.attach('마리 퀴리', 'musical')['candidates'][0]['category'], 'musical')
-        self.assertIsNone(self.attach('마리 퀴리', 'play')['work_id'])   # 순서만 바꾸고 연결은 하지 않는다
+    def test_guessed_category_only_orders_titles_in_different_categories(self):
+        # LLM 분야는 틀릴 수 있어서 영화·공연처럼 분야가 다른 동명은 연결하지 않고 순서만 바꾼다
+        for category in ('play', 'musical'):
+            draft = self.attach('마리 퀴리', category)
+            self.assertEqual((draft['match_status'], draft['work_id'], draft['candidates'][0]['category']),
+                             (match.AMBIGUOUS, None, category))
+
+    def test_cinema_name_on_the_ticket_picks_the_movie(self):
+        movie = Work.objects.create(category='movie', source_id='13', title='마리 퀴리', date=date(2020, 1, 1))
+        draft = {'title': '마리 퀴리', 'viewed_at': None, 'venue': '', 'category': 'movie'}
+        self.assertEqual(match.attach_candidates([dict(draft)])[0]['match_status'], match.AMBIGUOUS)   # 영화관이 없으면 모른다
+        linked = match.attach_candidates([dict(draft)], cinema=True)[0]
+        self.assertEqual((linked['match_status'], linked['work_id']), (match.MATCHED, f'movie:{movie.pk}'))
+
+    def test_same_title_movies_pick_the_one_released_nearest_the_viewing_date(self):
+        new = Work.objects.create(category='movie', source_id='11', title='호프', date=date(2026, 7, 15))
+        old = Work.objects.create(category='movie', source_id='12', title='호프', date=date(2019, 11, 22), popularity=99)
+        draft = match.attach_candidates([{'title': '호프', 'viewed_at': '2026-07-25', 'venue': '', 'category': 'movie'}])[0]
+        self.assertEqual((draft['match_status'], draft['work_id']), (match.MATCHED, f'movie:{new.pk}'))
+        self.assertEqual([c['id'] for c in draft['candidates']], [f'movie:{new.pk}', f'movie:{old.pk}'])
+        # 관람일을 모르면 고를 수 없다
+        self.assertEqual(self.attach('호프', 'movie')['match_status'], match.AMBIGUOUS)
 
     def test_longer_title_containing_the_query_is_a_candidate_but_not_auto_linked(self):
         Production.objects.create(category='exhibition', key='운현궁푸른꽃의계절', code='E00001', title='[운현궁] 기획전시 [푸른꽃의 계절]')
@@ -363,11 +381,12 @@ class KoreanMovieTitleTests(TestCase):
         self.assertEqual((draft['title'], draft['match_status'], draft['work_id'], draft['category']),
                          ('오디세이', match.MATCHED, f'movie:{self.odyssey.pk}', 'movie'))
 
-    def test_same_original_title_is_not_auto_linked(self):
+    def test_same_original_title_picks_the_nearest_release(self):
         results = [self.movie(1368337, '오디세이', 'The Odyssey', '2026-07-15'), self.movie(2, '오디세이', 'The Odyssey', '1997-01-01')]
         draft, _ = self.attach('The Odyssey', results)
+        self.assertEqual((draft['match_status'], draft['work_id']), (match.MATCHED, f'movie:{self.odyssey.pk}'))
+        draft, _ = self.attach('The Odyssey', results, viewed=None)   # 관람일을 모르면 사용자가 확인한다
         self.assertEqual((draft['match_status'], draft['work_id']), (match.AMBIGUOUS, None))
-        self.assertEqual(draft['candidates'][0]['title'], '오디세이')
 
     def english(self, tmdb_id, title, original, released):
         return {'id': tmdb_id, 'title': title, 'original_title': original, 'release_date': released}
@@ -386,7 +405,7 @@ class KoreanMovieTitleTests(TestCase):
         draft, _ = self.attach('Parasite', korean, english, viewed='2019-06-08')
         self.assertEqual(draft['title'], '기생충')
         self.assertEqual([c['id'] for c in draft['candidates']], [f'movie:{parasite.pk}', f'movie:{old.pk}'])
-        self.assertEqual((draft['match_status'], draft['work_id']), (match.AMBIGUOUS, None))   # 여러 편이라 사용자가 확인
+        self.assertEqual((draft['match_status'], draft['work_id']), (match.MATCHED, f'movie:{parasite.pk}'))
 
     def test_korean_title_of_a_film_outside_the_db_is_asked_separately(self):
         english = [self.english(777, 'Some Film', '어떤 영화', '2026-07-01')]
@@ -399,6 +418,15 @@ class KoreanMovieTitleTests(TestCase):
             self.attach('The Odyssey', [], error=error)
         self.assertNotIn('test-secret', ' '.join(logs.output))
         self.assertIn('HTTPError', ' '.join(logs.output))
+
+    def test_title_cut_off_at_the_end_is_found_only_when_one_film_starts_with_it(self):
+        long_title = self.english(1586876, 'Chiikawa the Movie: The Secret of the Mermaid Island', '映画ちいかわ', '2026-07-24')
+        korean = [self.movie(1586876, '극장판 치이카와: 인어 섬의 비밀', '映画ちいかわ', '2026-07-24')]
+        draft, _ = self.attach('Chiikawa the Movie - The Secret of the', korean, [long_title])
+        self.assertEqual(draft['title'], '극장판 치이카와: 인어 섬의 비밀')
+        other = self.english(2, 'Chiikawa the Movie: The Secret of the Forest', '다른 원제', '2025-01-01')
+        draft, _ = self.attach('Chiikawa the Movie - The Secret of the', korean, [long_title, other])
+        self.assertEqual(draft['title'], 'Chiikawa the Movie - The Secret of the')   # 두 편이면 고르지 않는다
 
     def test_unrelated_search_result_is_ignored(self):
         draft, _ = self.attach('A Wild Roomer', [self.movie(5, '다른 영화', 'Wild Things', '2023-01-01')])
@@ -461,7 +489,7 @@ class OcrViewTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         draft = response.json()['drafts'][0]
         self.assertEqual((draft['title'], draft['viewed_at'], draft['venue'], draft['work_id']),
-                         ('듄: 파트2', '2026-11-19', 'CGV 용산', f'movie:{self.dune.pk}'))
+                         ('듄: 파트2', '2026-11-19', '', f'movie:{self.dune.pk}'))
         self.assertEqual(self.user.works.count(), 0)   # 초안만 만들고 저장하지 않는다
 
     def test_no_text_in_image(self):

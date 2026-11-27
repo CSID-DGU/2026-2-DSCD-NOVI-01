@@ -22,6 +22,7 @@ MIN_SCORE = 0.6          # 이 점수 미만은 후보로 보여 주지 않는�
 CONFIDENT_SCORE = 0.9    # 이 점수 이상이면 작품을 미리 연결해 둔다 (아래 것은 사용자가 고른다)
 CONTAINS_SCORE = 0.85    # 한쪽 제목이 다른 쪽에 통째로 들어 있을 때의 점수. CONFIDENT_SCORE보다 낮아서 이것만으로는 자동 연결하지 않는다
 MAX_CANDIDATES = 3
+TIE_POOL = 20            # 같은 제목이 여러 편일 때 고르려고 살펴보는 작품 수 (화면에는 MAX_CANDIDATES개만 보낸다)
 MAX_ROWS = 3000          # 한 번에 비교할 최대 작품 수 (인기순)
 
 # 초안의 작품 연결 상태. 프론트가 work_id·candidates를 보고 추측하지 않도록 백엔드가 알려 준다
@@ -128,28 +129,54 @@ def find_candidates(title, category=None, limit=MAX_CANDIDATES):
     return [(round(score, 2), works[(model, pk)]) for score, model, pk in top if (model, pk) in works]
 
 
-def attach_candidates(drafts):
-    """초안마다 후보를 붙인다. 후보가 하나로 확실할 때만 작품·분야를 미리 연결한다.
+def _days_apart(work, viewed):
+    return abs((viewed - work.date).days) if work.date else float('inf')
 
-    같은 제목이 여러 분야에 있으면 ("겨울왕국" 영화와 뮤지컬) 점수가 같아서 어느 것인지 알 수 없다.
-    이때는 연결하지 않고 사용자가 고르게 한다. 잘못 연결하면 추천 입력이 오염되기 때문이다.
-    LLM이 짐작한 분야는 믿을 수 없어서 검색을 좁히지 않고, 점수가 같은 후보의 순서를 정하는 데만 쓴다.
+
+def _confident_work(found, viewed, cinema):
+    """바로 연결할 작품 하나. 정할 수 없으면 None (사용자가 고른다).
+
+    점수가 CONFIDENT_SCORE 이상인 1순위만 대상이다. 점수가 같은 작품이 여럿이면
+    ① 티켓에 영화관 이름(CGV 등)이 있으면 영화로 좁히고 ② 같은 분야 안에서는 개봉일(공연 시작일)이 관람일에 가장 가까운 것을 고른다.
+    영화·뮤지컬처럼 다른 분야가 남거나 날짜로도 하나를 정할 수 없으면 연결하지 않는다.
+    LLM이 판단한 분야는 여기에 쓰지 않는다: 뮤지컬 티켓의 "겨울왕국"을 영화로 판단해 잘못 연결한 일이 있었다 (2026-11-27 시험).
+    """
+    if not found or found[0][0] < CONFIDENT_SCORE:
+        return None
+    top = [work for score, work in found if score >= found[0][0]]
+    if cinema:
+        top = [work for work in top if work.category == Work.Category.MOVIE] or top
+    if len(top) == 1:
+        return top[0]
+    if len({work.category for work in top}) > 1 or viewed is None:
+        return None
+    ranked = sorted(top, key=lambda work: _days_apart(work, viewed))
+    return ranked[0] if _days_apart(ranked[0], viewed) < _days_apart(ranked[1], viewed) else None
+
+
+def attach_candidates(drafts, cinema=False):
+    """초안마다 후보를 붙인다. 어느 작품인지 정할 수 있으면 바로 연결한다 (사용자는 확인 화면에서 바꿀 수 있다).
+
+    LLM이 판단한 분야는 틀릴 수 있어서 검색을 좁히거나 연결을 정하는 데 쓰지 않고, 점수가 같은 후보의 순서에만 쓴다.
+    cinema: 티켓 글자에 영화관 이름이 있었는지 (parse.find_cinema).
     Work의 category는 'movie' 하나뿐이고 Production은 뮤지컬·연극·전시가 섞여 있어서, 분야는 찾은 작품 것을 쓴다.
     """
     for draft in drafts:
-        found = find_candidates(draft['title'], limit=MAX_CANDIDATES + 2)
+        found = find_candidates(draft['title'], limit=TIE_POOL)
         found.sort(key=lambda scored: (-scored[0], scored[1].category != draft['category']))   # 점수 → 짐작한 분야 순
+        viewed = date.fromisoformat(draft['viewed_at']) if draft.get('viewed_at') else None
+        chosen = _confident_work(found, viewed, cinema)
+        if chosen:   # 연결한 작품을 후보 맨 앞에 둔다 (프론트가 이 작품의 장르·배우를 채운다)
+            found.sort(key=lambda scored: scored[1] is not chosen)
         found = found[:MAX_CANDIDATES]
         draft['candidates'] = [dict(serialize_work(work), score=score) for score, work in found]
-        best = draft['candidates'][0] if draft['candidates'] else None
-        tied = len(found) > 1 and found[1][0] >= found[0][0]
-        if best and best['score'] >= CONFIDENT_SCORE and not tied:
-            draft['work_id'] = best['id']
-            draft['category'] = best['category']
+        if chosen:
+            draft['work_id'] = draft['candidates'][0]['id']
+            draft['category'] = draft['candidates'][0]['category']
             draft['match_status'] = MATCHED
         else:
             draft['work_id'] = None
-            draft['match_status'] = AMBIGUOUS if best else NOT_FOUND
+            draft['match_status'] = AMBIGUOUS if found else NOT_FOUND
         _use_korean_movie_title(draft)
     return drafts
 
@@ -179,7 +206,7 @@ def _use_korean_movie_title(draft):
         same_name.remove(chosen)
         same_name.insert(0, chosen)
     draft['candidates'] = [dict(serialize_work(work), score=1.0) for work in same_name[:MAX_CANDIDATES]]
-    if chosen and found['unique']:
+    if chosen and (found['unique'] or viewed):   # 같은 이름이 여러 편이면 개봉일이 관람일에 가장 가까운 작품이다
         draft['work_id'], draft['match_status'] = draft['candidates'][0]['id'], MATCHED
-    else:   # 같은 이름의 영화가 여러 편이면 관람일로 고른 것이라 사용자가 확인한다
+    else:   # 관람일을 몰라 고를 수 없거나, 고른 작품이 DB에 없다
         draft['work_id'], draft['match_status'] = None, AMBIGUOUS if draft['candidates'] else NOT_FOUND
