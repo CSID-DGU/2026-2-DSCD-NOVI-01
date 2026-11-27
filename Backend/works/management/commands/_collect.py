@@ -24,6 +24,9 @@ def save_works(command, category, ids, fetch, refresh, workers, limit=None):
     ids = [i for i in dict.fromkeys(ids) if i not in dropped]
     todo = (ids if refresh else [i for i in ids if i not in existing])[:limit]
     command.stdout.write(f'전체 {len(ids)}개 중 {len(todo)}개를 받습니다.')
+    # --refresh로 다시 받아도 직접 쓴 줄거리는 덮어쓰지 않는다
+    manual = set(Work.objects.filter(category=category, plot_source=Work.MANUAL_PLOT_SOURCE)
+                 .values_list('source_id', flat=True))
 
     saved = failed = 0
     with ThreadPoolExecutor(workers) as pool:
@@ -34,8 +37,8 @@ def save_works(command, category, ids, fetch, refresh, workers, limit=None):
                     failed += 1
                     command.stderr.write(f'  {source_id} 실패: {fields}')
                     continue
-                if not fields['plot']:
-                    # 다시 받아올 때 네이버로 채운 줄거리를 지우지 않도록
+                if not fields['plot'] or source_id in manual:
+                    # 다시 받아올 때 네이버로 채웠거나 직접 쓴 줄거리를 지우지 않도록
                     fields.pop('plot')
                     fields.pop('plot_source')
                 Work.objects.update_or_create(category=category, source_id=source_id, defaults=fields)

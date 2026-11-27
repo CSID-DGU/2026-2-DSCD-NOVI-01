@@ -25,9 +25,13 @@ class RateLimited(Exception):
 
 
 def _candidates(works):
-    """같은 작품 중 LLM에 보여 줄 공연 순서: 원래 출처 줄거리 > 네이버 줄거리, 같으면 줄거리가 긴 것. 같은 줄거리는 한 번만."""
+    """같은 작품 중 LLM에 보여 줄 공연 순서: 직접 쓴 줄거리 > 원래 출처 줄거리 > 네이버 줄거리, 같으면 줄거리가 긴 것.
+    같은 줄거리는 한 번만. group_performances가 작품의 대표 줄거리·장르를 고를 때도 이 순서를 쓰므로,
+    직접 쓴 줄거리를 맨 앞에 두어야 같은 작품의 새 공연이 들어와도 덮이지 않는다."""
     ordered = sorted((w for w in works if w.plot),
-                     key=lambda w: (w.plot_source in ORIGINAL_PLOT_SOURCES, len(w.plot)), reverse=True)
+                     key=lambda w: (w.plot_source == Work.MANUAL_PLOT_SOURCE,
+                                    w.plot_source in ORIGINAL_PLOT_SOURCES, len(w.plot)),
+                     reverse=True)
     by_plot = {}
     for work in ordered:
         by_plot.setdefault(work.plot, work)
