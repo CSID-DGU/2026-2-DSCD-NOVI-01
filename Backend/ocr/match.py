@@ -3,8 +3,10 @@
 OCR은 글자를 한 자씩 틀리고 띄어쓰기를 자주 빼먹는다 (듄 → 둔, "듄: 파트2" → "둔:파트2").
 그래서 양쪽 제목에서 공백·기호를 빼고, 한글은 자모로 풀어서 비교한다 (듄과 둔은 모음 하나만 다르다).
 """
+import re
 import threading
 import time
+from datetime import date
 from difflib import SequenceMatcher
 
 from django.db.models import F
@@ -12,6 +14,7 @@ from django.db.models import F
 from works.models import Production, Work
 from works.onboarding_api_views import CATEGORY_MODELS, serialize_work
 
+from . import tmdb
 from .parse import normalize
 
 # TODO: 아래 값은 근거 없이 정한 임시값이다. 실제 티켓 샘플로 정답 제목과 비교해서 정한다 (CLAUDE.md: 임의 숫자 금지)
@@ -25,6 +28,8 @@ MAX_ROWS = 3000          # 한 번에 비교할 최대 작품 수 (인기순)
 MATCHED = 'matched'        # 작품 하나로 확실함 → work_id가 채워져 있다
 AMBIGUOUS = 'ambiguous'    # 후보가 여럿이거나 확신이 없다 → 사용자가 candidates에서 고른다
 NOT_FOUND = 'not_found'    # 비슷한 작품이 작품 DB에 없다 → 사용자가 직접 찾거나 그대로 입력한다
+
+HANGUL = re.compile('[가-힣]')
 
 _CHO ='ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'
 _JUNG = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ'
@@ -145,4 +150,36 @@ def attach_candidates(drafts):
         else:
             draft['work_id'] = None
             draft['match_status'] = AMBIGUOUS if best else NOT_FOUND
+        _use_korean_movie_title(draft)
     return drafts
+
+
+def _use_korean_movie_title(draft):
+    """영어로만 읽힌 영화 제목은 TMDB에서 한글 제목을 찾아 바꾸고, 같은 번호의 작품에 연결한다 (tmdb.py).
+
+    한글이 섞인 제목, 공연·전시, 이미 확실히 연결된 초안은 건드리지 않는다.
+    DB에 없는 영화(인기도 기준으로 빠진 작품 등)는 한글 제목만 바꾸고 연결하지 않는다.
+    """
+    if HANGUL.search(draft['title']) or draft['category'] not in (None, Work.Category.MOVIE) or draft['match_status'] == MATCHED:
+        return
+    viewed = date.fromisoformat(draft['viewed_at']) if draft.get('viewed_at') else None
+    movies = Work.objects.filter(category=Work.Category.MOVIE)
+    found = tmdb.find_korean_title(
+        draft['title'], viewed, similarity, normalize, CONFIDENT_SCORE,
+        lambda ids: dict(movies.filter(source_id__in=ids).values_list('source_id', 'title')), MAX_CANDIDATES)
+    if not found:   # 한글 제목을 못 찾으면 읽힌 그대로 둔다
+        return
+    draft['title'] = found['title']
+    draft['category'] = Work.Category.MOVIE.value
+    # 영어 제목으로 찾았던 후보는 버리고(이름만 비슷한 다른 영화들), 같은 이름의 DB 작품을 관람일에 가까운 순으로 보여 준다
+    by_id = {work.source_id: work for work in movies.filter(source_id__in=found['ids'])}
+    same_name = [by_id[i] for i in found['ids'] if i in by_id]
+    chosen = by_id.get(found['tmdb_id'])
+    if chosen:
+        same_name.remove(chosen)
+        same_name.insert(0, chosen)
+    draft['candidates'] = [dict(serialize_work(work), score=1.0) for work in same_name[:MAX_CANDIDATES]]
+    if chosen and found['unique']:
+        draft['work_id'], draft['match_status'] = draft['candidates'][0]['id'], MATCHED
+    else:   # 같은 이름의 영화가 여러 편이면 관람일로 고른 것이라 사용자가 확인한다
+        draft['work_id'], draft['match_status'] = None, AMBIGUOUS if draft['candidates'] else NOT_FOUND

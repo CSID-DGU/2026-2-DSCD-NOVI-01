@@ -15,7 +15,9 @@ from PIL import Image
 
 from works.models import Production, Work
 
-from . import engine, layout, llm, match, parse
+from . import engine, layout, llm, match, parse, tmdb
+
+os.environ.pop('TMDB_API_KEY', None)   # 시험에서 실제 TMDB를 부르지 않는다 (TMDB 시험은 가짜 응답으로)
 
 match.CACHE_SECONDS = 0   # 시험에서는 매번 DB에서 제목을 다시 읽는다 (테스트마다 작품이 달라서)
 User = get_user_model()
@@ -333,6 +335,90 @@ class FindCandidatesTests(TestCase):
         self.assertEqual(self.attach('마리 퀴리')['match_status'], match.AMBIGUOUS)     # 뮤지컬·연극 동명
         self.assertEqual(self.attach('둔:파트1')['match_status'], match.AMBIGUOUS)      # 비슷하지만 확신 없음
         self.assertEqual(self.attach('전혀관계없는제목입니다')['match_status'], match.NOT_FOUND)
+
+
+class KoreanMovieTitleTests(TestCase):
+    """영어로만 읽힌 영화 제목 → TMDB에서 한글 제목 (TMDB는 가짜 응답)."""
+
+    def setUp(self):
+        self.odyssey = Work.objects.create(category='movie', source_id='1368337', title='오디세이', date=date(2026, 7, 15))
+
+    def attach(self, title, korean, english=(), category='movie', viewed='2026-07-20', error=None, details=None):
+        def fake_get(url, timeout, params):
+            if error:
+                raise error
+            if '/search/' not in url:   # 상세 조회: 한국어 제목
+                return mock.Mock(**{'json.return_value': {'title': (details or {}).get(int(url.rsplit('/', 1)[1]), '')}})
+            results = korean if params['language'] == 'ko-KR' else list(english)
+            return mock.Mock(**{'json.return_value': {'results': results}})
+        with mock.patch.dict(os.environ, {'TMDB_API_KEY': 'test'}),                 mock.patch('ocr.tmdb.requests.get', side_effect=fake_get) as get:
+            draft = match.attach_candidates([{'title': title, 'viewed_at': viewed, 'venue': '', 'category': category}])[0]
+        return draft, get
+
+    def movie(self, tmdb_id, title, original, released):
+        return {'id': tmdb_id, 'title': title, 'original_title': original, 'release_date': released}
+
+    def test_movie_in_db_is_shown_in_korean_and_linked(self):
+        draft, _ = self.attach('THE ODYSSEY', [self.movie(1368337, '오디세이', 'The Odyssey', '2026-07-15')])
+        self.assertEqual((draft['title'], draft['match_status'], draft['work_id'], draft['category']),
+                         ('오디세이', match.MATCHED, f'movie:{self.odyssey.pk}', 'movie'))
+
+    def test_same_original_title_is_not_auto_linked(self):
+        results = [self.movie(1368337, '오디세이', 'The Odyssey', '2026-07-15'), self.movie(2, '오디세이', 'The Odyssey', '1997-01-01')]
+        draft, _ = self.attach('The Odyssey', results)
+        self.assertEqual((draft['match_status'], draft['work_id']), (match.AMBIGUOUS, None))
+        self.assertEqual(draft['candidates'][0]['title'], '오디세이')
+
+    def english(self, tmdb_id, title, original, released):
+        return {'id': tmdb_id, 'title': title, 'original_title': original, 'release_date': released}
+
+    def test_foreign_original_title_is_found_by_english_title(self):
+        korean = [self.movie(129, '센과 치히로의 행방불명', '千と千尋の神隠し', '2001-07-20')]
+        draft, _ = self.attach('Spirited Away', korean, [self.english(129, 'Spirited Away', '千と千尋の神隠し', '2001-07-20')])
+        self.assertEqual(draft['title'], '센과 치히로의 행방불명')
+
+    def test_film_only_on_the_english_search_page_is_found(self):
+        # 실제 TMDB: "Parasite"의 기생충은 영어 검색 첫째인데 한국어 검색은 3쪽이라 첫 쪽에 없다
+        parasite = Work.objects.create(category='movie', source_id='496243', title='기생충', date=date(2019, 5, 30))
+        old = Work.objects.create(category='movie', source_id='48311', title='패러사이트', date=date(1982, 3, 12))
+        korean = [self.movie(48311, '패러사이트', 'Parasite', '1982-03-12')]
+        english = [self.english(496243, 'Parasite', '기생충', '2019-05-30'), self.english(48311, 'Parasite', 'Parasite', '1982-03-12')]
+        draft, _ = self.attach('Parasite', korean, english, viewed='2019-06-08')
+        self.assertEqual(draft['title'], '기생충')
+        self.assertEqual([c['id'] for c in draft['candidates']], [f'movie:{parasite.pk}', f'movie:{old.pk}'])
+        self.assertEqual((draft['match_status'], draft['work_id']), (match.AMBIGUOUS, None))   # 여러 편이라 사용자가 확인
+
+    def test_korean_title_of_a_film_outside_the_db_is_asked_separately(self):
+        english = [self.english(777, 'Some Film', '어떤 영화', '2026-07-01')]
+        draft, _ = self.attach('Some Film', [], english, details={777: '어떤 영화'})
+        self.assertEqual((draft['title'], draft['match_status'], draft['candidates']), ('어떤 영화', match.NOT_FOUND, []))
+
+    def test_error_log_does_not_contain_the_api_key(self):
+        error = tmdb.requests.HTTPError('401 Client Error for url: https://api.themoviedb.org/3/search/movie?api_key=test-secret')
+        with self.assertLogs('ocr.tmdb', level='WARNING') as logs:
+            self.attach('The Odyssey', [], error=error)
+        self.assertNotIn('test-secret', ' '.join(logs.output))
+        self.assertIn('HTTPError', ' '.join(logs.output))
+
+    def test_unrelated_search_result_is_ignored(self):
+        draft, _ = self.attach('A Wild Roomer', [self.movie(5, '다른 영화', 'Wild Things', '2023-01-01')])
+        self.assertEqual(draft['title'], 'A Wild Roomer')
+
+    def test_without_korean_title_or_on_error_the_draft_is_unchanged(self):
+        draft, _ = self.attach('Some Film', [self.movie(5, 'Some Film', 'Some Film', '2023-01-01')])
+        self.assertEqual(draft['title'], 'Some Film')
+        draft, _ = self.attach('The Odyssey', [], error=tmdb.requests.ConnectionError())
+        self.assertEqual((draft['title'], draft['match_status']), ('The Odyssey', match.NOT_FOUND))
+
+    def test_tmdb_is_not_called_for_korean_titles_or_performances(self):
+        for title, category in [('오디세이', 'movie'), ('WICKED', 'musical'), ('SIDEREUS', 'play')]:
+            _, get = self.attach(title, [], category=category)
+            get.assert_not_called()
+
+    def test_no_key_means_no_call(self):
+        with mock.patch('ocr.tmdb.requests.get') as get:
+            match.attach_candidates([{'title': 'The Odyssey', 'viewed_at': None, 'venue': '', 'category': 'movie'}])
+        get.assert_not_called()
 
 
 class OcrViewTests(TestCase):

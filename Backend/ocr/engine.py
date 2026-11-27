@@ -1,4 +1,4 @@
-"""티켓·예매내역 이미지 → 글자 줄. RapidOCR(PP-OCRv5 mobile, 한국어)을 쓴다.
+"""티켓·예매내역 이미지 → 글자 줄. RapidOCR(글자 위치 PP-OCRv6 small, 읽기 PP-OCRv5 mobile 한국어)을 쓴다.
 
 모델은 처음 부를 때 한 번만 올린다 (서버를 켤 때 import 비용을 내지 않으려고).
 기본 RapidOCR 모델은 중국어용이라 한글을 못 읽으므로 한국어 모델을 꼭 지정한다.
@@ -24,8 +24,10 @@ def _get_engine():
         if _engine is None:
             from rapidocr import EngineType, LangRec, ModelType, OCRVersion, RapidOCR
             _engine = RapidOCR(params={
-                'Det.engine_type': EngineType.ONNXRUNTIME, 'Det.ocr_version': OCRVersion.PPOCRV5,
-                'Det.model_type': ModelType.MOBILE,
+                # 글자 위치 찾기는 PP-OCRv6, 읽기는 한국어 v5. v5 위치 모델은 종이 티켓에 크게 인쇄된 한글 제목 줄을
+                # 통째로 놓쳤다 (2026-11-27 영화 티켓). v6은 그 줄을 찾는다
+                'Det.engine_type': EngineType.ONNXRUNTIME, 'Det.ocr_version': OCRVersion.PPOCRV6,
+                'Det.model_type': ModelType.SMALL,
                 'Rec.engine_type': EngineType.ONNXRUNTIME, 'Rec.ocr_version': OCRVersion.PPOCRV5,
                 'Rec.lang_type': LangRec.KOREAN, 'Rec.model_type': ModelType.MOBILE,
             })
