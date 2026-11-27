@@ -41,7 +41,7 @@ def ocr_tickets(request):
         logger.exception('티켓 OCR: 제목·날짜 추출 실패')
         return _json({'drafts': [], 'message': '티켓 정보를 읽는 데 실패했어요. 직접 입력해 주세요.'}, status=502)
 
-    response = {'drafts': match.attach_candidates(drafts)}
+    response = {'drafts': match.attach_candidates(drafts, cinema=bool(parse.find_cinema(lines)))}
     if not drafts:
         response['message'] = '작품 제목을 찾지 못했어요.'
     if settings.DEBUG:

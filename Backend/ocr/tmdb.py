@@ -45,19 +45,24 @@ def _nearest_first(movies, viewed):
     return sorted(movies, key=distance)
 
 
-def _same_name_movies(query, key, matches):
+def _same_name_movies(query, key, matches, starts):
     """원제나 영어 제목이 query와 같은 영화들. 두 검색 결과를 합친다.
 
     한국어 검색과 영어 검색은 순서가 달라서 한쪽 첫 쪽에만 있는 작품이 있다
     ("Parasite"의 기생충은 영어 검색 첫째, 한국어 검색 3쪽이었다). 그래서 둘 중 하나에만 있어도 후보로 본다.
     원제가 영어가 아닌 영화(한국·일본 영화 등)는 영어 검색의 제목으로 확인된다.
+    같은 이름이 없으면, 긴 제목의 뒷부분이 잘려 읽힌 경우를 본다: 읽힌 글자로 시작하는 영화가 딱 한 편일 때만 그 작품이다.
     각 항목: {'id', 'release_date', 'korean_title'(한국어 검색에 있었으면 그 제목)}
     """
     korean = _search(query, 'ko-KR', key)
     korean_titles = {movie['id']: movie.get('title') or '' for movie in korean}
     found = [movie for movie in korean if matches(movie.get('original_title'))]
-    found += [movie for movie in _search(query, 'en-US', key)
-              if matches(movie.get('title')) or matches(movie.get('original_title'))]
+    english = _search(query, 'en-US', key)
+    found += [movie for movie in english if matches(movie.get('title')) or matches(movie.get('original_title'))]
+    if not found:
+        partial = {movie['id']: movie for movie in korean + english
+                   if starts(movie.get('title')) or starts(movie.get('original_title'))}
+        found = list(partial.values()) if len(partial) == 1 else []
     movies = {}
     for movie in found:   # korean_title이 None이면 한국어 검색에 없던 작품이라 아직 모른다
         movies.setdefault(movie['id'], {'id': movie['id'], 'release_date': movie.get('release_date'),
@@ -77,8 +82,9 @@ def find_korean_title(query, viewed, same_title, normalize, min_score, db_titles
         return None
     wanted = normalize(query)
     matches = lambda text: same_title(wanted, normalize(text or '')) >= min_score
+    starts = lambda text: normalize(text or '').startswith(wanted)
     try:
-        movies = _nearest_first(_same_name_movies(query, key, matches), viewed)
+        movies = _nearest_first(_same_name_movies(query, key, matches, starts), viewed)
         if not movies:
             return None
         ids = [str(movie['id']) for movie in movies]

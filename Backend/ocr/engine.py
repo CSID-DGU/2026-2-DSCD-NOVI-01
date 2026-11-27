@@ -50,7 +50,9 @@ def read_boxes(data):
     """이미지 바이트 → (글자 상자 목록, 글자 목록). 글자가 없으면 빈 목록 둘."""
     image, engine = load_image(data), _get_engine()
     with _run_lock:
-        result = engine(image)
+        # 방향 판별(180도 뒤집힘 확인)은 끈다. 똑바른 줄을 뒤집어 깨뜨리는 일이 있었다 (2026-11-27 시험: '관람인원 성인2' → '공물군 성인2',
+        # 샘플 5장 제목 14/17 → 16/17). 사진의 회전은 load_image가 EXIF로 바로잡는다. 거꾸로 찍은 사진은 읽지 못한다
+        result = engine(image, use_cls=False)
     if result.boxes is None or result.txts is None:
         return [], []
     return [box.tolist() for box in result.boxes], list(result.txts)
