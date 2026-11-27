@@ -131,13 +131,14 @@ def title_in_text(title, lines):
 def extract_drafts(lines, today, ask):
     """글자 줄 → 초안 목록 [{"title", "viewed_at", "venue", "category"}]. 작품 DB 매칭은 하지 않는다 (match.py).
 
-    ask: 글자 줄을 받아 [{"title", "date", "category"}, ...]를 돌려주는 함수 (llm.ask_llm. 테스트에서는 가짜).
+    ask: 글자 줄을 받아 [{"title", "record", "date", "category"}, ...]를 돌려주는 함수 (llm.ask_llm. 테스트에서는 가짜).
+    record가 false인 항목(티켓 오픈 안내·작품 목록)은 글자의 날짜가 관람일이 아니라서 관람일을 비운다.
     """
     if not lines:
         return []
     dates = find_dates(lines, today)
     cinema = find_cinema(lines)
-    drafts, seen = [], set()
+    drafts, seen, listed = [], set(), []
     for item in ask(lines):
         if not isinstance(item, dict) or not isinstance(item.get('title'), str):
             continue
@@ -151,6 +152,8 @@ def extract_drafts(lines, today, ask):
             viewed = None
         if viewed not in dates:   # 글자에서 찾지 못한 날짜는 쓰지 않는다. 날짜가 글자에 하나뿐이면 그 날짜로 본다
             viewed = dates[0] if len(dates) == 1 else None
+        if item.get('record') is False:   # 오픈일·공연 기간이 하나뿐이어도 관람일로 넣지 않는다
+            viewed = None
         category = item.get('category') if item.get('category') in CATEGORIES else None
         if cinema:
             category = category or Work.Category.MOVIE
@@ -160,4 +163,19 @@ def extract_drafts(lines, today, ask):
             'venue': '',   # 장소는 사용자가 직접 입력한다 (2026-11-27 결정). 칸은 API 모양을 유지하려고 남긴다
             'category': category,
         })
-    return drafts
+        if item.get('record') is False:
+            listed.append(drafts[-1])
+    return _drop_poster_english(drafts, listed)
+
+
+def _drop_poster_english(drafts, listed):
+    """목록 화면에 한글 제목 작품이 있으면, 같은 목록의 영어만으로 된 항목은 버린다.
+
+    작은 포스터 속 영어 제목(THE MONSTER)이 따로 읽혀 없는 작품("더 몬스터")이 생겼다. 지시문만으로는 6번 중 4번 남았다
+    (2026-11-27 시험). 영어 제목뿐인 작품이 섞인 목록에서는 그 작품이 빠지며, 사용자가 직접 입력한다.
+    티켓·예매 기록(record가 false가 아닌 것)은 건드리지 않는다.
+    """
+    has_hangul = lambda draft: re.search('[가-힣]', draft['title'])
+    if not any(has_hangul(draft) for draft in listed):
+        return drafts
+    return [draft for draft in drafts if draft not in listed or has_hangul(draft)]
